@@ -52,16 +52,6 @@
             font-size: 14px
         }
 
-        #h {
-            position: fixed;
-            bottom: calc(8px + env(safe-area-inset-bottom, 0px));
-            left: 0;
-            right: 0;
-            text-align: center;
-            font-size: 12px;
-            opacity: .7
-        }
-
         canvas {
             display: block;
             touch-action: none
@@ -72,7 +62,6 @@
 <body>
     <div id="ui"><button id="p">Perspektif</button><button id="t">Tampak atas</button><button id="r">Hilangkan
             atap</button></div>
-    <div id="h">Geser = putar · Cubit/scroll = zoom · Biru = pintu · Hijau = jendela</div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
         const T = THREE, H = 3, TH = .15;
