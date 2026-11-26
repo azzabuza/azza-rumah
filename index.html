@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="utf-8">
+    <title>Denah Rumah 3D</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <style>
+        :root {
+            --bg: #f4f4f4;
+            --fg: #1a1a1a;
+            --btn: #fff;
+            box-sizing: border-box;
+            padding-top: env(safe-area-inset-top, 0px);
+            padding-bottom: env(safe-area-inset-bottom, 0px)
+        }
+
+        @media (prefers-color-scheme:dark) {
+            :root:not([data-theme="light"]) {
+                --bg: #1c1c1c;
+                --fg: #eee;
+                --btn: #333
+            }
+        }
+
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            background: var(--bg);
+            color: var(--fg);
+            font-family: system-ui, sans-serif;
+            overflow: hidden
+        }
+
+        #ui {
+            position: fixed;
+            left: 10px;
+            top: calc(10px + env(safe-area-inset-top, 0px));
+            z-index: 5;
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap
+        }
+
+        button {
+            background: var(--btn);
+            color: var(--fg);
+            border: 1px solid #8886;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 14px
+        }
+
+        #h {
+            position: fixed;
+            bottom: calc(8px + env(safe-area-inset-bottom, 0px));
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 12px;
+            opacity: .7
+        }
+
+        canvas {
+            display: block;
+            touch-action: none
+        }
+    </style>
+</head>
+
+<body>
+    <div id="ui"><button id="p">Perspektif</button><button id="t">Tampak atas</button><button id="r">Hilangkan
+            atap</button></div>
+    <div id="h">Geser = putar · Cubit/scroll = zoom · Biru = pintu · Hijau = jendela</div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        const T = THREE, H = 3, TH = .15;
+        const scene = new T.Scene(), dark = matchMedia('(prefers-color-scheme:dark)').matches;
+        scene.background = new T.Color(dark ? 0x1c1c1c : 0xf4f4f4);
+        const cam = new T.PerspectiveCamera(50, innerWidth / innerHeight, .1, 200);
+        const ren = new T.WebGLRenderer({ antialias: true }); ren.setSize(innerWidth, innerHeight); ren.setPixelRatio(Math.min(devicePixelRatio, 2));
+        document.body.appendChild(ren.domElement);
+        scene.add(new T.HemisphereLight(0xffffff, 0x999999, .85));
+        const sun = new T.DirectionalLight(0xffffff, .6); sun.position.set(-10, 20, 25); scene.add(sun);
+        const M = c => new T.MeshLambertMaterial({ color: c });
+        const wallM = M(0xf0f0f0), slabM = M(0xcfcfcf), doorM = M(0x2200aa), winM = M(0x00c060);
+        const edgeM = new T.LineBasicMaterial({ color: 0x000000 });
+        function box(x0, y0, z0, x1, y1, z1, m, edge) {
+            const b = new T.Mesh(new T.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), m);
+            b.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2); scene.add(b);
+            if (edge) { const l = new T.LineSegments(new T.EdgesGeometry(b.geometry), edgeM); l.position.copy(b.position); scene.add(l) }
+        }
+        // batas atas dinding menyesuaikan kemiringan bawah atap sayap kiri & kanan
+        const topY = x => x < 3 ? 2.242 + .206 * x : x > 9.5 ? 2.86 - .205 * (x - 9.5) : H;
+        function trapX(x0, x1, y0, z, m) {
+            const s = new T.Shape();
+            s.moveTo(x0, y0); s.lineTo(x1, y0); s.lineTo(x1, topY(x1)); s.lineTo(x0, topY(x0)); s.closePath();
+            const b = new T.Mesh(new T.ExtrudeGeometry(s, { depth: TH, bevelEnabled: false }), m);
+            b.position.set(0, 0, z - TH / 2); scene.add(b);
+            const l = new T.LineSegments(new T.EdgesGeometry(b.geometry), edgeM); l.position.copy(b.position); scene.add(l)
+        }
+        // pixel (gambar) -> meter, disesuaikan dengan ukuran di denah
+        function ip(v, a) { for (let i = 0; i < a.length - 1; i++) { if (v <= a[i + 1][0] || i == a.length - 2) { const [p, q] = a[i], [r, s] = a[i + 1]; return q + (v - p) / (r - p) * (s - q) } } }
+        const X = v => ip(v, [[131, 0], [462, 3], [795, 6.25], [1125, 9.5], [1276, 11]]);
+        const Z = v => ip(v, [[425, 0], [710, 3], [1031, 6.15], [1127, 7.1], [1376, 9.5], [1443, 10], [1715, 12]]);
+        function W(x1, y1, x2, y2, ops = [], h = H, y0 = 0) {
+            const hz = y1 == y2, cv = hz ? X : Z, a0 = cv(hz ? x1 : y1), a1 = cv(hz ? x2 : y2), c = hz ? Z(y1) : X(x1);
+            const B = (s, e, b, t, m) => {
+                if (e - s < .01) return;
+                if (hz) {
+                    if (e <= 3 || s >= 9.5) return trapX(s - TH / 2, e + TH / 2, b, c, m);
+                    if (s < 3 && e > 9.5) { trapX(s - TH / 2, 3, b, c, m); box(3, b, c - TH / 2, 9.5, t, c + TH / 2, m, 1); trapX(9.5, e + TH / 2, b, c, m); return }
+                    if (s < 3) { trapX(s - TH / 2, 3, b, c, m); box(3, b, c - TH / 2, e + TH / 2, t, c + TH / 2, m, 1); return }
+                    if (e > 9.5) { box(s - TH / 2, b, c - TH / 2, 9.5, t, c + TH / 2, m, 1); trapX(9.5, e + TH / 2, b, c, m); return }
+                    box(s - TH / 2, b, c - TH / 2, e + TH / 2, t, c + TH / 2, m, 1)
+                } else { const th = Math.min(t, topY(c)); box(c - TH / 2, b, s - TH / 2, c + TH / 2, th, e + TH / 2, m, 1) }
+            };
+            ops = ops.map(o => [cv(o[0]), cv(o[1])]).sort((a, b) => a[0] - b[0]); let p = a0;
+            for (const [s, e] of ops) {
+                B(p, s, y0, h, wallM); B(s, e, 0, .9, wallM); B(s, e, 2, h, wallM);
+                hz ? box(s, .9, c - .025, e, 2, c + .025, winM) : box(c - .025, .9, s, c + .025, 2, e, winM); p = e
+            }
+            B(p, a1, y0, h, wallM)
+        }
+        function D(px1, py1, px2, py2) {
+            const ax = X(px1), az = Z(py1), bx = X(px2), bz = Z(py2), L = Math.hypot(bx - ax, bz - az);
+            const m = new T.Mesh(new T.BoxGeometry(L, 2.05, .05), doorM); m.position.set((ax + bx) / 2, 1.025, (az + bz) / 2);
+            m.rotation.y = -Math.atan2(bz - az, bx - ax); scene.add(m)
+        }
+        function lab(px, py, txt, w) {
+            const cv = document.createElement('canvas'); cv.width = 512; cv.height = 192; const g = cv.getContext('2d');
+            g.fillStyle = '#111'; g.font = 'bold 62px sans-serif'; g.textAlign = 'center';
+            txt.split('|').forEach((l, i, a) => g.fillText(l, 256, 100 + (i - (a.length - 1) / 2) * 70));
+            const s = new T.Mesh(new T.PlaneGeometry(w, w * .375), new T.MeshBasicMaterial({ map: new T.CanvasTexture(cv), transparent: true }));
+            s.rotation.x = -Math.PI / 2; s.position.set(X(px), .02, Z(py)); scene.add(s)
+        }
+        // pondasi / lantai dasar
+        box(0, -.3, 0, 11, 0, 3, slabM, 1); box(3, -.3, 3, 9.5, 0, 12, slabM, 1);
+        // dinding (garis hitam)
+        W(131, 425, 1276, 425); W(131, 425, 131, 710); W(1276, 425, 1276, 710);
+        W(131, 710, 365, 710); W(462, 710, 1153, 710); W(1250, 710, 1276, 710);
+        W(1040, 573, 1276, 573); W(1040, 512, 1040, 573);
+        W(462, 800, 462, 1443, [[890, 940], [975, 1025]]);
+        W(1125, 710, 1125, 1376, [[920, 970]]);
+        W(795, 710, 795, 905); W(795, 992, 795, 1031); W(795, 1031, 1125, 1031);
+        W(462, 1127, 680, 1127); W(768, 1127, 795, 1127); W(795, 1127, 795, 1443);
+        W(462, 1443, 795, 1443, [[538, 592], [655, 709]]);
+        W(795, 1376, 818, 1376); W(908, 1376, 1125, 1376, [[960, 1014], [1034, 1088]]);
+        // bagian atas bukaan pintu
+        [[365, 710, 462, 710], [1153, 710, 1250, 710], [795, 905, 795, 992], [680, 1127, 768, 1127], [818, 1376, 908, 1376], [462, 710, 462, 800], [1040, 425, 1040, 512]]
+            .forEach(a => W(a[0], a[1], a[2], a[3], [], H, 2.1));
+        // teras: 3 tiang teras di bagian depan (menumpu pas di bawah kemiringan kanopi)
+        [3, 6.125, 9.25].forEach(x => box(x, 0, 11.75, x + .25, 2.38, 12, wallM, 1));
+        // pintu (garis biru)
+        D(377, 705, 312, 661); D(1248, 705, 1184, 662); D(1043, 505, 1107, 548); D(462, 793, 541, 830);
+        D(792, 906, 873, 945); D(680, 1125, 762, 1163); D(826, 1337, 908, 1377);
+        // nama ruang
+
+        // atap pelana utama + atap dapur & kanopi teras melandai di bawah atap utama
+        const roofs = new T.Group(), roofM = M(0xb5472f); scene.add(roofs);
+        function gable(x0, z0, x1, z1, alongX, rh, o) {
+            const w = (alongX ? z1 - z0 : x1 - x0) + 2 * o, L = (alongX ? x1 - x0 : z1 - z0) + 2 * o;
+            const s = new T.Shape(); s.moveTo(-w / 2, 0); s.lineTo(w / 2, 0); s.lineTo(0, rh); s.closePath();
+            const m = new T.Mesh(new T.ExtrudeGeometry(s, { depth: L, bevelEnabled: false }), roofM);
+            if (alongX) { m.rotation.y = Math.PI / 2; m.position.set(x0 - o, H, (z0 + z1) / 2) } else m.position.set((x0 + x1) / 2, H, z0 - o);
+            roofs.add(m); const l = new T.LineSegments(new T.EdgesGeometry(m.geometry), edgeM); l.rotation.copy(m.rotation); l.position.copy(m.position); roofs.add(l)
+        }
+        gable(3, 0, 9.5, 10, false, 1.9, .4);
+        function wing(P) {
+            const s = new T.Shape(); s.moveTo(P[0][0], P[0][1]); P.slice(1).forEach(q => s.lineTo(q[0], q[1])); s.closePath();
+            const m = new T.Mesh(new T.ExtrudeGeometry(s, { depth: 3.8, bevelEnabled: false }), roofM); m.position.set(0, 0, -.4); roofs.add(m);
+            const l = new T.LineSegments(new T.EdgesGeometry(m.geometry), edgeM); l.position.copy(m.position); roofs.add(l)
+        }
+        // atap dapur kiri & kanan (dimulai dari bawah atap utama y=2.98 dan melandai ke samping)
+        wing([[-.4, 2.16], [3, 2.86], [3, 2.98], [-.4, 2.28]]);
+        wing([[9.5, 2.86], [11.4, 2.47], [11.4, 2.59], [9.5, 2.98]]);
+        // kanopi teras miring (dimulai dari bawah atap utama y=2.98 turun ke depan y=2.23)
+        const cs = new T.Shape(); cs.moveTo(-9.5, 2.86); cs.lineTo(-12.4, 2.23); cs.lineTo(-12.4, 2.35); cs.lineTo(-9.5, 2.98); cs.closePath();
+        const cm = new T.Mesh(new T.ExtrudeGeometry(cs, { depth: 6.7, bevelEnabled: false }), roofM);
+        cm.rotation.y = Math.PI / 2; cm.position.set(2.9, 0, 0); roofs.add(cm);
+        const cl = new T.LineSegments(new T.EdgesGeometry(cm.geometry), edgeM);
+        cl.rotation.copy(cm.rotation); cl.position.copy(cm.position); roofs.add(cl);
+        // kamera
+        let th = -.5, ph = .9, d = 24; const tg = new T.Vector3(5.5, 0, 6);
+        function upd() { cam.position.set(tg.x + d * Math.sin(th) * Math.cos(ph), d * Math.sin(ph), tg.z + d * Math.cos(th) * Math.cos(ph)); cam.lookAt(tg) }
+        upd();
+        const el = ren.domElement, pts = new Map(); let pd = 0;
+        el.addEventListener('pointerdown', e => { el.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]) });
+        el.addEventListener('pointerup', e => { pts.delete(e.pointerId); pd = 0 });
+        el.addEventListener('pointermove', e => {
+            if (!pts.has(e.pointerId)) return; const o = pts.get(e.pointerId);
+            if (pts.size == 1) { th -= (e.clientX - o[0]) * .007; ph = Math.max(.1, Math.min(1.55, ph + (e.clientY - o[1]) * .007)) }
+            pts.set(e.pointerId, [e.clientX, e.clientY]);
+            if (pts.size == 2) { const [a, b] = [...pts.values()], n = Math.hypot(a[0] - b[0], a[1] - b[1]); if (pd) d = Math.max(5, Math.min(50, d * pd / n)); pd = n }
+            upd()
+        });
+        el.addEventListener('wheel', e => { e.preventDefault(); d = Math.max(5, Math.min(50, d * (1 + e.deltaY * .001))); upd() }, { passive: false });
+        p.onclick = () => { th = -.5; ph = .9; d = 24; upd() };
+        r.onclick = () => { roofs.visible = !roofs.visible; r.textContent = roofs.visible ? 'Hilangkan atap' : 'Aktifkan atap' };
+        t.onclick = () => { th = 0; ph = 1.55; d = 24; upd() };
+        addEventListener('resize', () => { cam.aspect = innerWidth / innerHeight; cam.updateProjectionMatrix(); ren.setSize(innerWidth, innerHeight) });
+        (function loop() { requestAnimationFrame(loop); ren.render(scene, cam) })();
+    </script>
+</body>
+
+</html>
