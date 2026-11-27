@@ -1,744 +1,1072 @@
 <!DOCTYPE html>
-<html lang="id"><head><meta charset="utf-8"><title>Denah Rumah 3D</title>
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="color-scheme" content="light">
-<style>
-:root{color-scheme:light;--bg:#f5f5f5;--fg:#1a1a1a;--btn:#fff;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,sans-serif;overflow:hidden}
-#ui{position:fixed;left:10px;top:calc(10px + env(safe-area-inset-top,0px));z-index:5;display:flex;gap:6px;flex-wrap:wrap}
-button{background:var(--btn);color:var(--fg);border:1px solid #8886;border-radius:8px;padding:8px 12px;font-size:14px;cursor:pointer}
-button.active{background:#0284c7;color:#fff;border-color:#0284c7}
-#povNav{position:fixed;left:10px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:5;display:none;gap:6px;flex-wrap:wrap;max-width:calc(100vw - 20px)}
-#povNav button{font-size:12px;padding:6px 10px}
-canvas{display:block;touch-action:none}
-</style></head><body>
-<div id="ui">
-  <button id="p">Perspektif</button>
-  <button id="t">Tampak atas</button>
-  <button id="r">Hilangkan atap</button>
-  <button id="m">Sembunyikan garis</button>
-  <button id="v">Aktifkan POV</button>
-</div>
-<div id="povNav"></div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script>
-const T = THREE, H = 3.5, H_LOW = 3.2, H_TERAS = 3.0, Y_DROP = -0.10, TH = 0.15, hT = TH / 2;
-const scene = new T.Scene();
-scene.background = new T.Color(0xf4f4f4);
-
-const cam = new T.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 200);
-const ren = new T.WebGLRenderer({ antialias: true });
-ren.setSize(innerWidth, innerHeight);
-ren.setPixelRatio(Math.min(devicePixelRatio, 2));
-document.body.appendChild(ren.domElement);
-
-// Pencahayaan 2 arah agar dinding sumbu X dan sumbu Z punya kontras bayangan siku yang alami
-scene.add(new T.HemisphereLight(0xffffff, 0x787878, 0.72));
-const sun = new T.DirectionalLight(0xffffff, 0.55);
-sun.position.set(-12, 22, 18);
-scene.add(sun);
-const fillLight = new T.DirectionalLight(0xeef6ff, 0.25);
-fillLight.position.set(14, 15, -16);
-scene.add(fillLight);
-
-// Tekstur modul 2x2 ubin keramik bujur sangkar presisi 60cm x 60cm (1 modul = 1.20m x 1.20m)
-function createTileTexture() {
-  const cv = document.createElement('canvas');
-  cv.width = 512;
-  cv.height = 512;
-  const g = cv.getContext('2d');
-
-  // Warna dasar nat keramik
-  g.fillStyle = '#9c958b';
-  g.fillRect(0, 0, 512, 512);
-
-  // 4 petak ubin bujur sangkar (masing-masing 256x256 px = 0.60m x 0.60m)
-  const grout = 4;
-  const tiles = [
-    [0, 0, '#e3ded6'],
-    [256, 0, '#dfd9d0'],
-    [0, 256, '#dfd9d0'],
-    [256, 256, '#e3ded6']
-  ];
-  for (const [tx, ty, col] of tiles) {
-    g.fillStyle = col;
-    g.fillRect(tx + grout / 2, ty + grout / 2, 256 - grout, 256 - grout);
-  }
-
-  const tex = new T.CanvasTexture(cv);
-  tex.wrapS = T.RepeatWrapping;
-  tex.wrapT = T.RepeatWrapping;
-  tex.anisotropy = 8;
-  return tex;
-}
-
-const tileTex = createTileTexture();
-
-// Material
-const wallM     = new T.MeshLambertMaterial({ color: 0xf5f5f3 });
-const plinthM   = new T.MeshLambertMaterial({ color: 0x57534e });
-const slabM     = new T.MeshLambertMaterial({ map: tileTex });
-const slabSideM = new T.MeshLambertMaterial({ color: 0xb8b2a8 });
-const ceilingM  = new T.MeshLambertMaterial({ color: 0xffffff, side: T.DoubleSide });
-const doorM     = new T.MeshLambertMaterial({ color: 0x7a441e });
-const winM      = new T.MeshLambertMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.72 });
-const roofM     = new T.MeshLambertMaterial({ color: 0x7c8288 });
-const edgeM     = new T.LineBasicMaterial({ color: 0x000000 });
-const cornerM   = new T.LineBasicMaterial({ color: 0x9c9890 });
-
-function box(x0, y0, z0, x1, y1, z1, m, edge, target = scene) {
-  const b = new T.Mesh(new T.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), m);
-  b.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
-  target.add(b);
-  if (edge) {
-    const l = new T.LineSegments(new T.EdgesGeometry(b.geometry), edgeM);
-    l.position.copy(b.position);
-    target.add(l);
-  }
-}
-
-// Pelat lantai non-indexed dengan World-Space UV Mapping murni 1:1 (1 petak = tepat 0.60m x 0.60m)
-function floorSlab(x0, y0, z0, x1, y1, z1) {
-  const baseGeo = new T.BoxGeometry(x1 - x0, y1 - y0, z1 - z0);
-  const geo = baseGeo.toNonIndexed();
-  const pos = geo.attributes.position;
-  const norm = geo.attributes.normal;
-  const uv = geo.attributes.uv;
-  const cx = (x0 + x1) / 2;
-  const cz = (z0 + z1) / 2;
-  const TILE_MODULE = 1.20; // 2 ubin = 1.20m -> 1 ubin = tepat 0.60m x 0.60m bujur sangkar
-
-  for (let i = 0; i < pos.count; i++) {
-    const wx = cx + pos.getX(i);
-    const wz = cz + pos.getZ(i);
-    if (norm.getY(i) > 0.5) {
-      uv.setXY(i, wx / TILE_MODULE, wz / TILE_MODULE);
-    } else {
-      uv.setXY(i, 0, 0);
-    }
-  }
-  uv.needsUpdate = true;
-
-  // Non-indexed BoxGeometry memiliki 36 vertex (6 sisi x 6 vertex; sisi atas berada di indeks 12..17)
-  geo.clearGroups();
-  geo.addGroup(0, 12, 1);   // sisi kanan & kiri (+X, -X)
-  geo.addGroup(12, 6, 0);   // sisi atas (+Y) -> tekstur keramik bujur sangkar
-  geo.addGroup(18, 18, 1);  // sisi bawah, depan, belakang (-Y, +Z, -Z)
-
-  const mesh = new T.Mesh(geo, [slabM, slabSideM]);
-  mesh.position.set(cx, (y0 + y1) / 2, cz);
-  scene.add(mesh);
-}
-
-// Garis siku vertikal tipis khusus di pojok pertemuan dinding agar siku ruangan terlihat tegas tanpa garis sambungan
-function cornerLine(x, z, y0 = 0, y1 = H) {
-  const geo = new T.BufferGeometry().setFromPoints([
-    new T.Vector3(x, y0, z),
-    new T.Vector3(x, y1, z)
-  ]);
-  scene.add(new T.Line(geo, cornerM));
-}
-
-// Fungsi dinding & balok beton bertulang berbasis koordinat meter presisi + otomatis lis atas & plint
-function W(x1, z1, x2, z2, ops = [], h = H, y0 = 0, isBeam = false) {
-  const hz = Math.abs(z1 - z2) < 1e-6;
-  const a0 = hz ? Math.min(x1, x2) : Math.min(z1, z2);
-  const a1 = hz ? Math.max(x1, x2) : Math.max(z1, z2);
-  const c  = hz ? z1 : x1;
-  const B  = (s, e, b, t, m) => {
-    if (e - s < 0.01) return;
-    hz ? box(s - hT, b, c - hT, e + hT, t, c + hT, m, 0)
-       : box(c - hT, b, s - hT, c + hT, t, e + hT, m, 0);
-
-    if (!isBeam && b <= 0.01 && t > 0.12) {
-      const pT = hT + 0.012;
-      hz ? box(s - hT, b + 0.002, c - pT, e + hT, b + 0.10, c + pT, plinthM, 0)
-         : box(c - pT, b + 0.002, s - hT, c + pT, b + 0.10, e + hT, plinthM, 0);
-    }
-
-    if (Math.abs(t - H) < 0.01 || Math.abs(t - H_LOW) < 0.01) {
-      const cT = hT + 0.01;
-      hz ? box(s - hT, t - 0.07, c - cT, e + hT, t, c + cT, plinthM, 0)
-         : box(c - cT, t - 0.07, s - hT, c + cT, t, e + hT, plinthM, 0);
-    }
-  };
-  ops = ops.map(o => [Math.min(o[0], o[1]), Math.max(o[0], o[1])]).sort((a, b) => a[0] - b[0]);
-  let p = a0;
-  for (const [s, e] of ops) {
-    B(p, s, y0, h, wallM);
-    B(s, e, y0, 0.9, wallM);
-    B(s, e, 2.0, h, wallM);
-    hz ? box(s, 0.9, c - 0.025, e, 2.0, c + 0.025, winM)
-       : box(c - 0.025, 0.9, s, c + 0.025, 2.0, e, winM);
-    p = e;
-  }
-  B(p, a1, y0, h, wallM);
-}
-
-// Fungsi daun pintu terbuka berdasarkan titik engsel & sudut (meter)
-function D(hx, hz, w, deg, baseY = 0) {
-  const rad = deg * Math.PI / 180;
-  const dx = Math.cos(rad) * w, dz = Math.sin(rad) * w;
-  const doorH = 2.05 - baseY;
-  const m = new T.Mesh(new T.BoxGeometry(w, doorH, 0.05), doorM);
-  m.position.set(hx + dx / 2, baseY + doorH / 2, hz + dz / 2);
-  m.rotation.y = -rad;
-  scene.add(m);
-}
-
-// =========================================================================
-// KOORDINAT PRESISI SESUAI HITUNGAN DENAH (dalam satuan meter):
-// 
-// Sumbu Y (Elevasi Lantai & Atap):
-//   y = 0.00  : Permukaan lantai Bangunan Utama (R. Santai, KT 1, KT 2, R. Tamu)
-//   y = -0.10 : Permukaan lantai Dapur, Kamar Mandi, dan Teras (turun 10cm)
-//   y = -0.35 : Dasar pondasi / sloof
-//   y = 3.00  : Tinggi tiang teras
-//   y = 3.20  : Tinggi dinding sayap kiri & sayap kanan (Kamar Mandi)
-//   y = 3.50  : Tinggi dinding & plafon bangunan utama
-// =========================================================================
-
-// 1. Pondasi & pelat lantai dengan World-Space UV keramik bujur sangkar presisi 60cm x 60cm
-// Lantai Dapur & Kamar Mandi (turun 10cm: y = -0.10m)
-floorSlab(-hT, -0.35, -hT, 11.0 + hT, Y_DROP, 3.0 + hT);
-
-// Lantai Bangunan Utama (y = 0.00m)
-floorSlab(3.0 - hT, -0.35, 3.0, 6.25, 0, 10.2);
-floorSlab(6.25, -0.35, 3.0, 9.5 + hT, 0, 9.7);
-
-// Lantai Teras Depan (turun 10cm: y = -0.10m)
-floorSlab(3.0 - hT, -0.35, 10.2, 6.25, Y_DROP, 12.2);
-floorSlab(6.25, -0.35, 9.7, 9.5 + hT, Y_DROP, 12.2);
-
-// Lis keramik bibir tangga penurunan 10cm di batas Teras & pintu Dapur
-box(3.0 - hT, Y_DROP, 10.2 + hT - 0.01, 6.25 + hT, 0, 10.2 + hT + 0.01, plinthM, 0);
-box(6.25 - hT, Y_DROP, 9.7 + hT - 0.01, 9.5 + hT, 0, 9.7 + hT + 0.01, plinthM, 0);
-box(3.0 - hT - 0.01, Y_DROP, 3.0, 3.0 - hT + 0.01, 0, 3.9, plinthM, 0);
-
-// 2. Dinding Dapur & Perkakas + Kamar Mandi (menapak di lantai y = -0.10m)
-// Sayap kiri (x = 0.00 s/d x = 3.00) tinggi 3.20m RATA
-W(0, 0, 3.0, 0, [], H_LOW, Y_DROP);
-W(0, 0, 0, 3.0, [], H_LOW, Y_DROP);
-W(0, 3.0, 1.85, 3.0, [], H_LOW, Y_DROP);
-W(2.75, 3.0, 3.0, 3.0, [], H_LOW, Y_DROP);
-
-// Bagian tengah di bawah atap pelana utama (x = 3.00 s/d x = 9.50) tinggi 3.50m
-W(3.0, 0, 9.5, 0, [], H, Y_DROP);
-W(3.0, 3.0, 9.5, 3.0, [], H, Y_DROP);
-
-// Sayap kanan (x = 9.50 s/d x = 11.00 — mencakup sisi kanan Kamar Mandi & dapur kanan) tinggi 3.20m RATA
-W(9.5, 0, 11.0, 0, [], H_LOW, Y_DROP);
-W(11.0, 0, 11.0, 3.0, [], H_LOW, Y_DROP);
-W(9.5, 3.0, 9.75, 3.0, [], H_LOW, Y_DROP);
-W(10.65, 3.0, 11.0, 3.0, [], H_LOW, Y_DROP);
-
-// Sekat Kamar Mandi di pojok kanan atas (menapak di lantai y = -0.10m)
-W(8.0, 1.5, 9.5, 1.5, [], H, Y_DROP);
-W(9.5, 1.5, 11.0, 1.5, [], H_LOW, Y_DROP);
-W(8.0, 0.85, 8.0, 1.5, [], H, Y_DROP);
-
-// 3. Dinding Bangunan Utama (lebar 6.5m: x=3.0 s/d x=9.5, tinggi 3.5m)
-W(3.0, 3.9, 3.0, 10.2, [[4.7, 5.25], [5.65, 6.2]], H, 0);
-W(9.5, 3.0, 9.5, 9.7, [[4.85, 5.45]], H, 0);
-
-// Dinding tengah vertikal (x = 6.25)
-W(6.25, 3.0, 6.25, 4.9, [], H, 0);
-W(6.25, 5.8, 6.25, 6.0, [], H, 0);
-W(6.25, 7.2, 6.25, 10.2, [], H, 0);
-
-// Dinding horizontal pembatas ruangan
-W(6.25, 6.0, 9.5, 6.0, [], H, 0);
-W(3.0, 7.2, 5.05, 7.2, [], H, 0);
-W(5.95, 7.2, 6.25, 7.2, [], H, 0);
-
-// Dinding depan Kamar Tidur kiri (z = 10.20, lebar 3.25m) dengan 2 jendela
-W(3.0, 10.2, 6.25, 10.2, [[3.75, 4.35], [4.95, 5.55]], H, 0);
-
-// Dinding depan Ruang Tamu (z = 9.70, lebar 3.25m) dengan pintu utama & 2 jendela
-W(6.25, 9.7, 6.45, 9.7, [], H, 0);
-W(7.35, 9.7, 9.5, 9.7, [[7.8, 8.4], [8.65, 9.25]], H, 0);
-
-// 4. Balok gawang di atas bukaan pintu & penghubung ruangan
-W(1.85, 3.0, 2.75, 3.0, [], H_LOW, 2.1, true);   // Balok gawang pintu dapur kiri ikut tinggi 3.20m
-W(9.75, 3.0, 10.65, 3.0, [], H_LOW, 2.1, true);  // Balok gawang pintu dapur kanan ikut tinggi 3.20m
-[
-  [8.0, 0.0, 8.0, 0.85],
-  [3.0, 3.0, 3.0, 3.9],
-  [6.25, 4.9, 6.25, 5.8],
-  [6.25, 6.0, 6.25, 7.2],
-  [5.05, 7.2, 5.95, 7.2],
-  [6.45, 9.7, 7.35, 9.7]
-].forEach(a => W(a[0], a[1], a[2], a[3], [], H, 2.1, true));
-
-// 4a. Balok beton bertulang (ring balk pengaku melintang) di atas Dapur & Kamar Mandi (y = 3.15m s/d 3.50m)
-[
-  [3.0, 0.0, 3.0, 3.0],     // Balok kiri sejajar dinding kiri bangunan utama (x = 3.00m)
-  [6.25, 0.0, 6.25, 3.0],   // Balok tengah sejajar dinding tengah bangunan utama (x = 6.25m)
-  [9.5, 0.0, 9.5, 3.0]      // Balok kanan sejajar dinding kanan bangunan utama melewati KM & Dapur (x = 9.50m)
-].forEach(b => W(b[0], b[1], b[2], b[3], [], H, 3.15, true));
-
-// 4b. Garis siku sudut dalam & luar tiap ruangan
-[
-  // Dapur & Perkakas (menapak di lantai y = -0.10m)
-  [0 + hT, 0 + hT, Y_DROP, H_LOW], [0 + hT, 3.0 - hT, Y_DROP, H_LOW],
-  [8.0 - hT, 0 + hT, Y_DROP, H], [11.0 - hT, 3.0 - hT, Y_DROP, H_LOW], [11.0 - hT, 1.5 + hT, Y_DROP, H_LOW],
-  // Kamar Mandi (menapak di lantai y = -0.10m)
-  [8.0 + hT, 0 + hT, Y_DROP, H], [11.0 - hT, 0 + hT, Y_DROP, H_LOW], [8.0 + hT, 1.5 - hT, Y_DROP, H], [11.0 - hT, 1.5 - hT, Y_DROP, H_LOW],
-  // Ruang Santai
-  [3.0 + hT, 3.0 + hT, 0, H], [6.25 - hT, 3.0 + hT, 0, H], [3.0 + hT, 7.2 - hT, 0, H], [6.25 - hT, 7.2 - hT, 0, H],
-  // Kamar Tidur Kanan (KT 1)
-  [6.25 + hT, 3.0 + hT, 0, H], [9.5 - hT, 3.0 + hT, 0, H], [6.25 + hT, 6.0 - hT, 0, H], [9.5 - hT, 6.0 - hT, 0, H],
-  // Kamar Tidur Kiri (KT 2)
-  [3.0 + hT, 7.2 + hT, 0, H], [6.25 - hT, 7.2 + hT, 0, H], [3.0 + hT, 10.2 - hT, 0, H], [6.25 - hT, 10.2 - hT, 0, H],
-  // Ruang Tamu
-  [6.25 + hT, 6.0 + hT, 0, H], [9.5 - hT, 6.0 + hT, 0, H], [6.25 + hT, 9.7 - hT, 0, H], [9.5 - hT, 9.7 - hT, 0, H],
-  // Sudut luar bangunan
-  [-hT, -hT, Y_DROP, H_LOW], [-hT, 3.0 + hT, Y_DROP, H_LOW], [11.0 + hT, -hT, Y_DROP, H_LOW], [11.0 + hT, 3.0 + hT, Y_DROP, H_LOW],
-  [3.0 - hT, 10.2 + hT, 0, H], [6.25 + hT, 10.2 + hT, 0, H], [9.5 + hT, 9.7 + hT, 0, H]
-].forEach(([cx, cz, botY, topY]) => cornerLine(cx, cz, botY, topY));
-
-// 5. Tiang Teras depan (menapak di lantai teras y = -0.10m, z = 12.20m, puncak di y = 3.0m)
-[3.0 - hT, 6.125, 9.5 + hT - 0.25].forEach(x => {
-  box(x, Y_DROP, 11.95, x + 0.25, H_TERAS, 12.2, wallM, 0);
-  box(x - 0.01, Y_DROP + 0.002, 11.94, x + 0.26, Y_DROP + 0.10, 12.21, plinthM, 0);
-  cornerLine(x, 11.95, Y_DROP, H_TERAS);
-  cornerLine(x + 0.25, 11.95, Y_DROP, H_TERAS);
-  cornerLine(x, 12.2, Y_DROP, H_TERAS);
-  cornerLine(x + 0.25, 12.2, Y_DROP, H_TERAS);
-});
-
-// 6. Daun Pintu (coklat kayu) sesuai elevasi lantai masing-masing
-D(2.75, 3.0, 0.9, -150, Y_DROP);
-D(10.65, 3.0, 0.9, -150, Y_DROP);
-D(8.0, 0.0, 0.85, 32, Y_DROP);
-D(3.0, 3.0, 0.9, 25, 0);
-D(6.25, 5.8, 0.9, -25, 0);
-D(5.95, 7.2, 0.9, 125, 0);
-D(6.45, 9.7, 0.9, -32, 0);
-
-// 7. Atap Pelana Utama + Sayap Dapur + Kanopi Teras + Plafon Interior
-const roofs = new T.Group();
-scene.add(roofs);
-
-// Plafon dapur sayap kiri (3.20m), tengah (3.50m), dan sayap kanan / KM kanan (3.20m)
-box(0.0, H_LOW - 0.02, 0.0, 3.0, H_LOW, 3.0, ceilingM, 0, roofs);
-box(3.0, H - 0.02, 0.0, 9.5, H, 3.0, ceilingM, 0, roofs);
-box(9.5, H_LOW - 0.02, 0.0, 11.0, H_LOW, 3.0, ceilingM, 0, roofs);
-
-box(3.0, H - 0.02, 3.0, 6.25, H, 10.2, ceilingM, 0, roofs);
-box(6.25, H - 0.02, 3.0, 9.5, H, 9.7, ceilingM, 0, roofs);
-
-function gable(x0, z0, x1, z1, alongX, rh, o) {
-  const w = (alongX ? z1 - z0 : x1 - x0) + 2 * o;
-  const L = (alongX ? x1 - x0 : z1 - z0) + 2 * o;
-  const s = new T.Shape();
-  s.moveTo(-w / 2, 0);
-  s.lineTo(w / 2, 0);
-  s.lineTo(0, rh);
-  s.closePath();
-  const m = new T.Mesh(new T.ExtrudeGeometry(s, { depth: L, bevelEnabled: false }), roofM);
-  if (alongX) {
-    m.rotation.y = Math.PI / 2;
-    m.position.set(x0 - o, H, (z0 + z1) / 2);
-  } else {
-    m.position.set((x0 + x1) / 2, H, z0 - o);
-  }
-  roofs.add(m);
-  const l = new T.LineSegments(new T.EdgesGeometry(m.geometry), edgeM);
-  l.rotation.copy(m.rotation);
-  l.position.copy(m.position);
-  roofs.add(l);
-}
-
-gable(3.0, 0, 9.5, 10.2, true, 1.9, 0.4);
-
-function wingFB(x0, x1, baseH) {
-  const s = new T.Shape();
-  s.moveTo(0.4, 0);
-  s.lineTo(-3.4, 0);
-  s.lineTo(-3.4, 1.32);
-  s.lineTo(-1.5, 0.66);
-  s.closePath();
-  const m = new T.Mesh(new T.ExtrudeGeometry(s, { depth: x1 - x0, bevelEnabled: false }), roofM);
-  m.rotation.y = Math.PI / 2;
-  m.position.set(x0, baseH, 0);
-  roofs.add(m);
-  const l = new T.LineSegments(new T.EdgesGeometry(m.geometry), edgeM);
-  l.rotation.copy(m.rotation);
-  l.position.copy(m.position);
-  roofs.add(l);
-}
-// Sayap kiri dan sayap kanan (Kamar Mandi) keduanya simetris di elevasi 3.20m
-wingFB(-0.4, 2.6, H_LOW);
-wingFB(9.9, 11.4, H_LOW);
-
-const cs = new T.Shape();
-cs.moveTo(-9.7, 3.38);
-cs.lineTo(-12.6, 2.92);
-cs.lineTo(-12.6, 3.04);
-cs.lineTo(-9.7, 3.50);
-cs.closePath();
-const cm = new T.Mesh(new T.ExtrudeGeometry(cs, { depth: 6.7, bevelEnabled: false }), roofM);
-cm.rotation.y = Math.PI / 2;
-cm.position.set(2.9, 0, 0);
-roofs.add(cm);
-const cl = new T.LineSegments(new T.EdgesGeometry(cm.geometry), edgeM);
-cl.rotation.copy(cm.rotation);
-cl.position.copy(cm.position);
-roofs.add(cl);
-
-// 8. GARIS UKUR PRESISI STRIP / PUTUS-PUTUS (METER) UNTUK TUKANG
-const dims = new T.Group();
-scene.add(dims);
-
-const dimDashM = new T.LineDashedMaterial({
-  color: 0xdc2626,
-  dashSize: 0.16,
-  gapSize: 0.1
-});
-const dimTickM = new T.LineBasicMaterial({ color: 0xdc2626 });
-
-function dimLabel(txt, x, y, z, scale = 0.72) {
-  const cv = document.createElement('canvas');
-  cv.width = 256;
-  cv.height = 96;
-  const g = cv.getContext('2d');
-  g.fillStyle = 'rgba(255,255,255,0.92)';
-  g.strokeStyle = '#dc2626';
-  g.lineWidth = 5;
-  g.beginPath();
-  g.roundRect(14, 16, 228, 64, 14);
-  g.fill();
-  g.stroke();
-  g.fillStyle = '#b91c1c';
-  g.font = 'bold 34px system-ui, sans-serif';
-  g.textAlign = 'center';
-  g.textBaseline = 'middle';
-  g.fillText(txt, 128, 50);
-  const sp = new T.Sprite(new T.SpriteMaterial({
-    map: new T.CanvasTexture(cv),
-    depthTest: false
-  }));
-  sp.position.set(x, y, z);
-  sp.scale.set(scale * 2.2, scale * 0.82, 1);
-  dims.add(sp);
-}
-
-function dimH(x1, z1, x2, z2, txt, tickDir = [0, 0], labelOffset = [0, 0], baseY = 0) {
-  const y = baseY + 0.04, t = 0.16;
-  const [tx, tz] = tickDir;
-
-  const mainLine = new T.Line(
-    new T.BufferGeometry().setFromPoints([
-      new T.Vector3(x1, y, z1),
-      new T.Vector3(x2, y, z2)
-    ]),
-    dimDashM
-  );
-  mainLine.computeLineDistances();
-  dims.add(mainLine);
-
-  const ticks = new T.LineSegments(
-    new T.BufferGeometry().setFromPoints([
-      new T.Vector3(x1 - tx * t, y, z1 - tz * t), new T.Vector3(x1 + tx * t, y, z1 + tz * t),
-      new T.Vector3(x2 - tx * t, y, z2 - tz * t), new T.Vector3(x2 + tx * t, y, z2 + tz * t)
-    ]),
-    dimTickM
-  );
-  dims.add(ticks);
-
-  dimLabel(txt, (x1 + x2) / 2 + labelOffset[0], baseY + 0.28, (z1 + z2) / 2 + labelOffset[1], 0.65);
-}
-
-function dimV(x, z, y1, y2, txt, offsetX = 0.35, offsetZ = 0) {
-  const t = 0.18;
-  const px = x + offsetX, pz = z + offsetZ;
-
-  const vLine = new T.Line(
-    new T.BufferGeometry().setFromPoints([
-      new T.Vector3(px, y1, pz),
-      new T.Vector3(px, y2, pz)
-    ]),
-    dimDashM
-  );
-  vLine.computeLineDistances();
-  dims.add(vLine);
-
-  const projLines = new T.LineSegments(
-    new T.BufferGeometry().setFromPoints([
-      new T.Vector3(x, y1, z), new T.Vector3(px + t, y1, pz),
-      new T.Vector3(x, y2, z), new T.Vector3(px + t, y2, pz)
-    ]),
-    dimDashM
-  );
-  projLines.computeLineDistances();
-  dims.add(projLines);
-
-  dimLabel(txt, px + 0.55, (y1 + y2) / 2, pz, 0.75);
-}
-
-dimH(0.0, -0.55, 8.0, -0.55, '8m', [0, 1], [0, -0.35], Y_DROP);
-dimH(8.0, -0.55, 11.0, -0.55, '3m', [0, 1], [0, -0.35], Y_DROP);
-
-dimH(-0.55, 0.0, -0.55, 3.0, '3m', [1, 0], [-0.45, 0], Y_DROP);
-dimH(11.55, 0.0, 11.55, 3.0, '3m', [1, 0], [0.45, 0], Y_DROP);
-dimH(0.0, 3.45, 3.0, 3.45, '3m', [0, 1], [0, 0.35], Y_DROP);
-dimH(9.5, 3.45, 11.0, 3.45, '1.5m', [0, 1], [0, 0.35], Y_DROP);
-dimH(3.0, 2.55, 9.5, 2.55, '6.5m', [0, 1], [0, -0.32], Y_DROP);
-
-dimH(2.45, 3.0, 2.45, 10.2, '7.2m', [1, 0], [-0.55, 0], 0);
-dimH(2.45, 10.2, 2.45, 12.2, '2m', [1, 0], [-0.45, 0], Y_DROP);
-dimH(10.05, 3.0, 10.05, 9.7, '6.7m', [1, 0], [0.55, 0], 0);
-dimH(10.05, 9.7, 10.05, 12.2, '2.5m', [1, 0], [0.5, 0], Y_DROP);
-dimH(3.0, 12.75, 9.5, 12.75, '6.5m', [0, 1], [0, 0.38], Y_DROP);
-
-dimH(5.9, 3.0, 5.9, 7.2, '4.2m', [1, 0], [-0.48, 0], 0);
-dimH(6.6, 6.0, 6.6, 7.2, '1.25m', [1, 0], [0.52, 0], 0);
-dimH(9.15, 3.0, 9.15, 6.0, '3m', [1, 0], [-0.38, 0], 0);
-dimH(9.15, 6.0, 9.15, 9.7, '3.7m', [1, 0], [-0.42, 0], 0);
-dimH(3.35, 7.2, 3.35, 10.2, '3m', [1, 0], [0.38, 0], 0);
-dimH(3.0, 10.55, 6.25, 10.55, '3.25m', [0, 1], [0, 0.32], Y_DROP);
-dimH(6.25, 10.05, 9.5, 10.05, '3.25m', [0, 1], [0, 0.32], Y_DROP);
-dimH(6.55, 9.7, 6.55, 10.2, '50cm', [1, 0], [0.48, 0], Y_DROP);
-
-dimV(0.0, 0.0, Y_DROP, H_LOW, 'Tinggi 3.2m', -0.95, 0);
-dimV(11.0, 3.0, Y_DROP, H_LOW, 'Tinggi 3.2m', 0.45, 0);
-dimV(9.5, 6.0, 0, H, 'Tinggi 3.5m', 0.45, 0);
-dimV(9.5, 12.2, Y_DROP, H_TERAS, 'Tiang 3m', 0.45, 0);
-dimV(3.0, 12.2, Y_DROP, 0, 'Turun 10cm', -1.05, 0);
-
-// 9. FITUR POV 360° TEPAT DI TENGAH TIAP RUANGAN (elevasi mata ikut elevasi lantai ruangan)
-const povGroup = new T.Group();
-povGroup.visible = false;
-scene.add(povGroup);
-
-const ROOMS = [
-  { name: 'Teras depan',            x: 6.25,  z: 10.95, yaw: Math.PI,      floorY: Y_DROP },
-  { name: 'Ruang tamu',       x: 7.875, z: 7.85,  yaw: Math.PI,      floorY: 0 },
-  { name: 'Kamar tidur tamu',    x: 4.625, z: 8.70,  yaw: 0,            floorY: 0 },
-  { name: 'Kamar tidur utama',    x: 7.875, z: 4.50,  yaw: -Math.PI / 2, floorY: 0 },
-  { name: 'Ruang santai',     x: 4.625, z: 5.10,  yaw: Math.PI / 2,  floorY: 0 },
-  { name: 'Dapur & Perkakas', x: 4.00,  z: 1.50,  yaw: 0,            floorY: Y_DROP },
-  { name: 'Kamar mandi',      x: 9.50,  z: 0.75,  yaw: -Math.PI / 2, floorY: Y_DROP }
-];
-
-const povHotspots = [];
-const povNav = document.getElementById('povNav');
-
-function makeHotspotTexture(label) {
-  const cv = document.createElement('canvas');
-  cv.width = 320;
-  cv.height = 140;
-  const g = cv.getContext('2d');
-  g.fillStyle = 'rgba(2, 132, 199, 0.94)';
-  g.strokeStyle = '#ffffff';
-  g.lineWidth = 6;
-  g.beginPath();
-  g.arc(160, 44, 32, 0, Math.PI * 2);
-  g.fill();
-  g.stroke();
-  g.fillStyle = '#ffffff';
-  g.font = 'bold 22px system-ui, sans-serif';
-  g.textAlign = 'center';
-  g.textBaseline = 'middle';
-  g.fillText('360°', 160, 45);
-  g.fillStyle = 'rgba(15, 23, 42, 0.88)';
-  g.beginPath();
-  g.roundRect(24, 86, 272, 42, 12);
-  g.fill();
-  g.fillStyle = '#ffffff';
-  g.font = 'bold 22px system-ui, sans-serif';
-  g.fillText(label, 160, 108);
-  return new T.CanvasTexture(cv);
-}
-
-ROOMS.forEach((rm, idx) => {
-  const ring = new T.Mesh(
-    new T.RingGeometry(0.18, 0.34, 32),
-    new T.MeshBasicMaterial({ color: 0x0284c7, side: T.DoubleSide })
-  );
-  ring.rotation.x = -Math.PI / 2;
-  ring.position.set(rm.x, rm.floorY + 0.03, rm.z);
-  ring.userData.roomIndex = idx;
-  povGroup.add(ring);
-
-  const sp = new T.Sprite(new T.SpriteMaterial({
-    map: makeHotspotTexture(rm.name),
-    depthTest: false
-  }));
-  sp.position.set(rm.x, rm.floorY + 1.35, rm.z);
-  sp.scale.set(1.9, 0.83, 1);
-  sp.userData.roomIndex = idx;
-  povGroup.add(sp);
-  povHotspots.push(ring, sp);
-
-  const btn = document.createElement('button');
-  btn.textContent = rm.name;
-  btn.onclick = () => enterRoomPOV(idx);
-  povNav.appendChild(btn);
-});
-
-// Kontrol Kamera Orbit & Mode POV 360°
-let povMode = false;
-let activeRoom = -1;
-let povYaw = 0, povPitch = 0, povFov = 75;
-let th = -0.5, ph = 0.9, d = 24;
-const tg = new T.Vector3(5.5, 0, 6.1);
-
-function enterRoomPOV(idx) {
-  const rm = ROOMS[idx];
-  activeRoom = idx;
-  povYaw = rm.yaw;
-  povPitch = 0;
-  povFov = 75;
-  cam.fov = povFov;
-  cam.updateProjectionMatrix();
-  povHotspots.forEach(obj => {
-    obj.visible = obj.userData.roomIndex !== idx;
-  });
-  [...povNav.children].forEach((b, i) => b.classList.toggle('active', i === idx));
-  upd();
-}
-
-function togglePOV(forceState) {
-  povMode = typeof forceState === 'boolean' ? forceState : !povMode;
-  v.textContent = povMode ? 'Nonaktifkan POV' : 'Aktifkan POV';
-  v.classList.toggle('active', povMode);
-  povGroup.visible = povMode;
-  povNav.style.display = povMode ? 'flex' : 'none';
-
-  if (povMode) {
-    activeRoom = -1;
-    povHotspots.forEach(obj => obj.visible = true);
-    [...povNav.children].forEach(b => b.classList.remove('active'));
-    if (!roofs.visible) {
-      roofs.visible = true;
-      r.textContent = 'Hilangkan atap';
-    }
-  } else {
-    activeRoom = -1;
-    cam.fov = 50;
-    cam.updateProjectionMatrix();
-    th = -0.5; ph = 0.9; d = 24;
-    upd();
-  }
-}
-
-function upd() {
-  if (povMode && activeRoom >= 0) {
-    const rm = ROOMS[activeRoom];
-    const eyeY = rm.floorY + 1.65;
-    cam.position.set(rm.x, eyeY, rm.z);
-    const lookX = rm.x + Math.sin(povYaw) * Math.cos(povPitch);
-    const lookY = eyeY + Math.sin(povPitch);
-    const lookZ = rm.z + Math.cos(povYaw) * Math.cos(povPitch);
-    cam.lookAt(lookX, lookY, lookZ);
-    return;
-  }
-  cam.position.set(
-    tg.x + d * Math.sin(th) * Math.cos(ph),
-    d * Math.sin(ph),
-    tg.z + d * Math.cos(th) * Math.cos(ph)
-  );
-  cam.lookAt(tg);
-}
-upd();
-
-const el = ren.domElement, pts = new Map();
-const raycaster = new T.Raycaster();
-const pointerNDC = new T.Vector2();
-let pd = 0, downPos = [0, 0], moved = false;
-
-function handleHotspotClick(clientX, clientY) {
-  if (!povMode) return;
-  const rect = el.getBoundingClientRect();
-  pointerNDC.x = ((clientX - rect.left) / rect.width) * 2 - 1;
-  pointerNDC.y = -((clientY - rect.top) / rect.height) * 2 + 1;
-  raycaster.setFromCamera(pointerNDC, cam);
-  const visibleTargets = povHotspots.filter(o => o.visible);
-  const hits = raycaster.intersectObjects(visibleTargets, false);
-  if (hits.length > 0) {
-    enterRoomPOV(hits[0].object.userData.roomIndex);
-  }
-}
-
-el.addEventListener('pointerdown', e => {
-  el.setPointerCapture(e.pointerId);
-  pts.set(e.pointerId, [e.clientX, e.clientY]);
-  downPos = [e.clientX, e.clientY];
-  moved = false;
-});
-el.addEventListener('pointerup', e => {
-  pts.delete(e.pointerId);
-  pd = 0;
-  if (!moved && Math.hypot(e.clientX - downPos[0], e.clientY - downPos[1]) < 8) {
-    handleHotspotClick(e.clientX, e.clientY);
-  }
-});
-el.addEventListener('pointermove', e => {
-  if (!pts.has(e.pointerId)) return;
-  const o = pts.get(e.pointerId);
-  const dx = e.clientX - o[0];
-  const dy = e.clientY - o[1];
-  if (Math.hypot(e.clientX - downPos[0], e.clientY - downPos[1]) > 6) moved = true;
-
-  if (pts.size === 1) {
-    if (povMode && activeRoom >= 0) {
-      povYaw += dx * 0.0055;
-      povPitch = Math.max(-1.45, Math.min(1.45, povPitch + dy * 0.0055));
-    } else {
-      th -= dx * 0.007;
-      ph = Math.max(0.1, Math.min(1.55, ph + dy * 0.007));
-    }
-  }
-  pts.set(e.pointerId, [e.clientX, e.clientY]);
-  if (pts.size === 2) {
-    const [a, b] = [...pts.values()], n = Math.hypot(a[0] - b[0], a[1] - b[1]);
-    if (pd) {
-      if (povMode && activeRoom >= 0) {
-        povFov = Math.max(40, Math.min(100, povFov * pd / n));
-        cam.fov = povFov;
-        cam.updateProjectionMatrix();
-      } else {
-        d = Math.max(5, Math.min(50, d * pd / n));
-      }
-    }
-    pd = n;
-  }
-  upd();
-});
-el.addEventListener('wheel', e => {
-  e.preventDefault();
-  if (povMode && activeRoom >= 0) {
-    povFov = Math.max(40, Math.min(100, povFov + e.deltaY * 0.03));
-    cam.fov = povFov;
-    cam.updateProjectionMatrix();
-  } else {
-    d = Math.max(5, Math.min(50, d * (1 + e.deltaY * 0.001)));
-  }
-  upd();
-}, { passive: false });
-
-p.onclick = () => {
-  if (povMode) togglePOV(false);
-  th = -0.5; ph = 0.9; d = 24; upd();
-};
-r.onclick = () => { roofs.visible = !roofs.visible; r.textContent = roofs.visible ? 'Hilangkan atap' : 'Aktifkan atap'; };
-t.onclick = () => {
-  if (povMode && activeRoom >= 0) activeRoom = -1;
-  cam.fov = 50; cam.updateProjectionMatrix();
-  th = 0; ph = 1.55; d = 24; upd();
-};
-m.onclick = () => { dims.visible = !dims.visible; m.textContent = dims.visible ? 'Sembunyikan garis' : 'Tampilkan garis'; };
-v.onclick = () => togglePOV();
-
-addEventListener('resize', () => {
-  cam.aspect = innerWidth / innerHeight;
-  cam.updateProjectionMatrix();
-  ren.setSize(innerWidth, innerHeight);
-});
-(function loop() {
-  requestAnimationFrame(loop);
-  ren.render(scene, cam);
-})();
-</script></body></html>
+<html lang="id">
+
+<head>
+    <meta charset="utf-8">
+    <title>Denah Rumah 3D - Atap Asbes</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="color-scheme" content="light">
+    <style>
+        :root {
+            color-scheme: light;
+            --bg: #f5f5f5;
+            --fg: #1a1a1a;
+            --btn: #fff;
+            box-sizing: border-box;
+            padding-top: env(safe-area-inset-top, 0px);
+            padding-bottom: env(safe-area-inset-bottom, 0px)
+        }
+
+        html,
+        body {
+            height: 100%;
+            margin: 0;
+            background: var(--bg);
+            color: var(--fg);
+            font-family: system-ui, sans-serif;
+            overflow: hidden
+        }
+
+        #ui {
+            position: fixed;
+            left: 10px;
+            top: calc(10px + env(safe-area-inset-top, 0px));
+            z-index: 5;
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap
+        }
+
+        button {
+            background: var(--btn);
+            color: var(--fg);
+            border: 1px solid #8886;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 14px;
+            cursor: pointer
+        }
+
+        button.active {
+            background: #0284c7;
+            color: #fff;
+            border-color: #0284c7
+        }
+
+        #povNav {
+            position: fixed;
+            left: 10px;
+            bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+            z-index: 5;
+            display: none;
+            gap: 6px;
+            flex-wrap: wrap;
+            max-width: calc(100vw - 20px)
+        }
+
+        #povNav button {
+            font-size: 12px;
+            padding: 6px 10px
+        }
+
+        canvas {
+            display: block;
+            touch-action: none
+        }
+    </style>
+</head>
+
+<body>
+    <div id="ui">
+        <button id="p">Perspektif</button>
+        <button id="t">Tampak atas</button>
+        <button id="r">Hilangkan atap</button>
+        <button id="m">Sembunyikan garis</button>
+        <button id="v">Aktifkan POV</button>
+    </div>
+    <div id="povNav"></div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        const T = THREE, H = 3.5, H_LOW = 3.2, H_TERAS = 3.0, Y_DROP = -0.10, TH = 0.15, hT = TH / 2;
+        const scene = new T.Scene();
+        scene.background = new T.Color(0xf4f4f4);
+
+        const cam = new T.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 200);
+        const ren = new T.WebGLRenderer({ antialias: true });
+        ren.setSize(innerWidth, innerHeight);
+        ren.setPixelRatio(Math.min(devicePixelRatio, 2));
+        document.body.appendChild(ren.domElement);
+
+        // Pencahayaan 2 arah agar dinding sumbu X dan sumbu Z punya kontras bayangan siku yang alami
+        scene.add(new T.HemisphereLight(0xffffff, 0x787878, 0.72));
+        const sun = new T.DirectionalLight(0xffffff, 0.55);
+        sun.position.set(-12, 22, 18);
+        scene.add(sun);
+        const fillLight = new T.DirectionalLight(0xeef6ff, 0.24);
+        fillLight.position.set(14, 15, -16);
+        scene.add(fillLight);
+
+        // Tekstur modul 2x2 ubin keramik bujur sangkar presisi 60cm x 60cm (1 modul = 1.20m x 1.20m)
+        function createTileTexture() {
+            const cv = document.createElement('canvas');
+            cv.width = 512;
+            cv.height = 512;
+            const g = cv.getContext('2d');
+
+            g.fillStyle = '#9c958b';
+            g.fillRect(0, 0, 512, 512);
+
+            const grout = 4;
+            const tiles = [
+                [0, 0, '#e3ded6'],
+                [256, 0, '#dfd9d0'],
+                [0, 256, '#dfd9d0'],
+                [256, 256, '#e3ded6']
+            ];
+            for (const [tx, ty, col] of tiles) {
+                g.fillStyle = col;
+                g.fillRect(tx + grout / 2, ty + grout / 2, 256 - grout, 256 - grout);
+            }
+
+            const tex = new T.CanvasTexture(cv);
+            tex.wrapS = T.RepeatWrapping;
+            tex.wrapT = T.RepeatWrapping;
+            tex.anisotropy = 8;
+            return tex;
+        }
+
+        // Tekstur lembaran asbes semen berserat 100% matte/doff tanpa kilau specular (1 modul = 1.05m x 1.80m)
+        function createAsbesMaterials() {
+            const w = 512, h = 512;
+            const cv = document.createElement('canvas');
+            cv.width = w;
+            cv.height = h;
+            const g = cv.getContext('2d');
+
+            const bcv = document.createElement('canvas');
+            bcv.width = w;
+            bcv.height = h;
+            const bg = bcv.getContext('2d');
+
+            // Warna abu-abu semen doff agar tidak terlihat silau/putih di bawah cahaya matahari
+            g.fillStyle = '#7e848c';
+            g.fillRect(0, 0, w, h);
+
+            bg.fillStyle = '#808080';
+            bg.fillRect(0, 0, w, h);
+
+            let seed = 42;
+            const rand = () => {
+                seed = (seed * 1664525 + 1013904223) % 4294967296;
+                return seed / 4294967296;
+            };
+
+            for (let i = 0; i < 6500; i++) {
+                const x = rand() * w;
+                const y = rand() * h;
+                const r = 0.6 + rand() * 1.8;
+                const light = rand() > 0.48;
+                g.fillStyle = light ? 'rgba(175, 182, 190, 0.14)' : 'rgba(55, 62, 70, 0.16)';
+                g.fillRect(x, y, r, r * (1 + rand() * 2.2));
+
+                bg.fillStyle = light ? 'rgba(195, 195, 195, 0.18)' : 'rgba(65, 65, 65, 0.18)';
+                bg.fillRect(x, y, r, r * 1.5);
+            }
+
+            for (let i = 0; i < 220; i++) {
+                const x = rand() * w;
+                const y = rand() * h;
+                const len = 18 + rand() * 55;
+                g.fillStyle = rand() > 0.5 ? 'rgba(68, 75, 84, 0.10)' : 'rgba(165, 172, 180, 0.08)';
+                g.fillRect(x, y, 1.5, len);
+            }
+
+            // Sambungan tumpuk horizontal antar-lembar asbes
+            const lapGrad = g.createLinearGradient(0, 0, 0, 14);
+            lapGrad.addColorStop(0, 'rgba(30, 35, 42, 0.52)');
+            lapGrad.addColorStop(0.35, 'rgba(55, 62, 70, 0.22)');
+            lapGrad.addColorStop(1, 'rgba(126, 132, 140, 0)');
+            g.fillStyle = lapGrad;
+            g.fillRect(0, 0, w, 14);
+
+            g.fillStyle = 'rgba(185, 192, 200, 0.28)';
+            g.fillRect(0, h - 3, w, 3);
+
+            bg.fillStyle = '#303030';
+            bg.fillRect(0, 0, w, 5);
+            bg.fillStyle = '#c8c8c8';
+            bg.fillRect(0, h - 4, w, 4);
+
+            // Sambungan tumpuk vertikal antar-lembar asbes
+            g.fillStyle = 'rgba(42, 48, 56, 0.36)';
+            g.fillRect(0, 0, 4, h);
+            g.fillStyle = 'rgba(180, 187, 195, 0.24)';
+            g.fillRect(w - 3, 0, 3, h);
+
+            bg.fillStyle = '#3c3c3c';
+            bg.fillRect(0, 0, 4, h);
+
+            // Titik paku/sekrup asbes
+            g.fillStyle = 'rgba(50, 56, 64, 0.55)';
+            for (let px = 32; px < w; px += 96) {
+                g.beginPath();
+                g.arc(px, 16, 2.6, 0, Math.PI * 2);
+                g.fill();
+            }
+
+            const map = new T.CanvasTexture(cv);
+            map.wrapS = T.RepeatWrapping;
+            map.wrapT = T.RepeatWrapping;
+            map.anisotropy = 8;
+
+            const bumpMap = new T.CanvasTexture(bcv);
+            bumpMap.wrapS = T.RepeatWrapping;
+            bumpMap.wrapT = T.RepeatWrapping;
+            bumpMap.anisotropy = 8;
+
+            // MeshLambertMaterial menjamin 100% diffuse matte (nol pantulan glossy/specular)
+            const sheetMat = new T.MeshLambertMaterial({
+                map,
+                bumpMap,
+                bumpScale: 0.008,
+                side: T.DoubleSide
+            });
+
+            const ridgeMat = new T.MeshLambertMaterial({
+                color: 0x737981,
+                bumpMap,
+                bumpScale: 0.006,
+                side: T.DoubleSide
+            });
+
+            return { sheetMat, ridgeMat };
+        }
+
+        const tileTex = createTileTexture();
+        const { sheetMat: asbesM, ridgeMat: asbesRidgeM } = createAsbesMaterials();
+
+        // Seluruh material menggunakan MeshLambertMaterial agar sepenuhnya doff / non-glossy
+        const wallM = new T.MeshLambertMaterial({ color: 0xf5f5f3 });
+        const plinthM = new T.MeshLambertMaterial({ color: 0x57534e });
+        const slabM = new T.MeshLambertMaterial({ map: tileTex });
+        const slabSideM = new T.MeshLambertMaterial({ color: 0xb8b2a8 });
+        const ceilingM = new T.MeshLambertMaterial({ color: 0xffffff, side: T.DoubleSide });
+        const doorM = new T.MeshLambertMaterial({ color: 0x7a441e });
+        const winM = new T.MeshLambertMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.72 });
+        const edgeM = new T.LineBasicMaterial({ color: 0x22262a });
+        const cornerM = new T.LineBasicMaterial({ color: 0x9c9890 });
+
+        function box(x0, y0, z0, x1, y1, z1, m, edge, target = scene) {
+            const b = new T.Mesh(new T.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), m);
+            b.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
+            target.add(b);
+            if (edge) {
+                const l = new T.LineSegments(new T.EdgesGeometry(b.geometry), edgeM);
+                l.position.copy(b.position);
+                target.add(l);
+            }
+        }
+
+        // Pelat lantai non-indexed dengan World-Space UV Mapping murni 1:1 (1 petak = tepat 0.60m x 0.60m)
+        function floorSlab(x0, y0, z0, x1, y1, z1) {
+            const baseGeo = new T.BoxGeometry(x1 - x0, y1 - y0, z1 - z0);
+            const geo = baseGeo.toNonIndexed();
+            const pos = geo.attributes.position;
+            const norm = geo.attributes.normal;
+            const uv = geo.attributes.uv;
+            const cx = (x0 + x1) / 2;
+            const cz = (z0 + z1) / 2;
+            const TILE_MODULE = 1.20;
+
+            for (let i = 0; i < pos.count; i++) {
+                const wx = cx + pos.getX(i);
+                const wz = cz + pos.getZ(i);
+                if (norm.getY(i) > 0.5) {
+                    uv.setXY(i, wx / TILE_MODULE, wz / TILE_MODULE);
+                } else {
+                    uv.setXY(i, 0, 0);
+                }
+            }
+            uv.needsUpdate = true;
+
+            geo.clearGroups();
+            geo.addGroup(0, 12, 1);
+            geo.addGroup(12, 6, 0);
+            geo.addGroup(18, 18, 1);
+
+            const mesh = new T.Mesh(geo, [slabM, slabSideM]);
+            mesh.position.set(cx, (y0 + y1) / 2, cz);
+            scene.add(mesh);
+        }
+
+        function cornerLine(x, z, y0 = 0, y1 = H) {
+            const geo = new T.BufferGeometry().setFromPoints([
+                new T.Vector3(x, y0, z),
+                new T.Vector3(x, y1, z)
+            ]);
+            scene.add(new T.Line(geo, cornerM));
+        }
+
+        let wallOrder = 0;
+        function W(x1, z1, x2, z2, ops = [], h = H, y0 = 0, isBeam = false) {
+            const wIdx = ++wallOrder;
+            const jitY = wIdx * 0.00008; // selisih mikro 0.08mm agar sudut & sambungan plint/lis abu-abu bebas Z-fighting
+            const jitT = (wIdx % 7) * 0.00012;
+
+            const hz = Math.abs(z1 - z2) < 1e-6;
+            const a0 = hz ? Math.min(x1, x2) : Math.min(z1, z2);
+            const a1 = hz ? Math.max(x1, x2) : Math.max(z1, z2);
+            const c = hz ? z1 : x1;
+            const B = (s, e, b, t, m) => {
+                if (e - s < 0.01) return;
+                hz ? box(s - hT, b, c - hT, e + hT, t, c + hT, m, 0)
+                    : box(c - hT, b, s - hT, c + hT, t, e + hT, m, 0);
+
+                // Plint bawah dinding (bebas Z-fighting di semua sudut & pertigaan dinding)
+                if (!isBeam && b <= 0.01 && t > 0.12) {
+                    const pT = hT + 0.012 + jitT;
+                    hz ? box(s - hT, b + 0.002 + jitY, c - pT, e + hT, b + 0.10 + jitY, c + pT, plinthM, 0)
+                        : box(c - pT, b + 0.002 + jitY, s - hT, c + pT, b + 0.10 + jitY, e + hT, plinthM, 0);
+                }
+
+                // Lis atas dinding (bebas Z-fighting di puncak, sudut, kusen pintu, & ring balk)
+                if (Math.abs(t - H) < 0.01 || Math.abs(t - H_LOW) < 0.01) {
+                    const cT = hT + 0.01 + jitT;
+                    hz ? box(s - hT, t - 0.07 - jitY, c - cT, e + hT, t + 0.002 + jitY, c + cT, plinthM, 0)
+                        : box(c - cT, t - 0.07 - jitY, s - hT, c + cT, t + 0.002 + jitY, e + hT, plinthM, 0);
+                }
+            };
+            ops = ops.map(o => [Math.min(o[0], o[1]), Math.max(o[0], o[1])]).sort((a, b) => a[0] - b[0]);
+            let p = a0;
+            for (const [s, e] of ops) {
+                B(p, s, y0, h, wallM);
+                B(s, e, y0, 0.9, wallM);
+                B(s, e, 2.0, h, wallM);
+                hz ? box(s, 0.9, c - 0.025, e, 2.0, c + 0.025, winM)
+                    : box(c - 0.025, 0.9, s, c + 0.025, 2.0, e, winM);
+                p = e;
+            }
+            B(p, a1, y0, h, wallM);
+        }
+
+        function D(hx, hz, w, deg, baseY = 0) {
+            const rad = deg * Math.PI / 180;
+            const dx = Math.cos(rad) * w, dz = Math.sin(rad) * w;
+            const doorH = 2.05 - baseY;
+            const m = new T.Mesh(new T.BoxGeometry(w, doorH, 0.05), doorM);
+            m.position.set(hx + dx / 2, baseY + doorH / 2, hz + dz / 2);
+            m.rotation.y = -rad;
+            scene.add(m);
+        }
+
+        // =========================================================================
+        // 1. PONDASI & PELAT LANTAI
+        // =========================================================================
+        floorSlab(-hT, -0.35, -hT, 11.0 + hT, Y_DROP, 3.0 + hT);
+
+        floorSlab(3.0 - hT, -0.35, 3.0, 6.25, 0, 10.2);
+        floorSlab(6.25, -0.35, 3.0, 9.5 + hT, 0, 9.7);
+
+        floorSlab(3.0 - hT, -0.35, 10.2, 6.25, Y_DROP, 12.2);
+        floorSlab(6.25, -0.35, 9.7, 9.5 + hT, Y_DROP, 12.2);
+
+        // Lis keramik bibir tangga penurunan 10cm (bebas Z-fighting terhadap lantai & plint)
+        box(3.0 - hT, Y_DROP, 10.2 + hT - 0.01, 6.25 + hT, -0.0005, 10.2 + hT + 0.01, plinthM, 0);
+        box(6.25 - hT, Y_DROP, 9.7 + hT - 0.01, 9.5 + hT, -0.0005, 9.7 + hT + 0.01, plinthM, 0);
+        box(3.0 - hT - 0.015, Y_DROP, 3.0, 3.0 - hT, -0.0005, 3.9, plinthM, 0);
+
+        // =========================================================================
+        // 2. DINDING DAPUR, PERKAKAS & KAMAR MANDI
+        // =========================================================================
+        W(0, 0, 3.0, 0, [], H_LOW, Y_DROP);
+        W(0, 0, 0, 3.0, [], H_LOW, Y_DROP);
+        W(0, 3.0, 1.85, 3.0, [], H_LOW, Y_DROP);
+        W(2.75, 3.0, 3.0, 3.0, [], H_LOW, Y_DROP);
+
+        W(3.0, 0, 9.5, 0, [], H, Y_DROP);
+        W(3.0, 3.0, 9.5, 3.0, [], H, Y_DROP);
+
+        W(9.5, 0, 11.0, 0, [], H_LOW, Y_DROP);
+        W(11.0, 0, 11.0, 3.0, [], H_LOW, Y_DROP);
+        W(9.5, 3.0, 9.75, 3.0, [], H_LOW, Y_DROP);
+        W(10.65, 3.0, 11.0, 3.0, [], H_LOW, Y_DROP);
+
+        W(8.0, 1.5, 9.5, 1.5, [], H, Y_DROP);
+        W(9.5, 1.5, 11.0, 1.5, [], H_LOW, Y_DROP);
+        W(8.0, 0.85, 8.0, 1.5, [], H, Y_DROP);
+
+        // =========================================================================
+        // 3. DINDING BANGUNAN UTAMA
+        // =========================================================================
+        W(3.0, 3.9, 3.0, 10.2, [[4.7, 5.25], [5.65, 6.2]], H, 0);
+        W(9.5, 3.0, 9.5, 9.7, [[4.85, 5.45]], H, 0);
+
+        W(6.25, 3.0, 6.25, 4.9, [], H, 0);
+        W(6.25, 5.8, 6.25, 6.0, [], H, 0);
+        W(6.25, 7.2, 6.25, 10.2, [], H, 0);
+
+        W(6.25, 6.0, 9.5, 6.0, [], H, 0);
+        W(3.0, 7.2, 5.05, 7.2, [], H, 0);
+        W(5.95, 7.2, 6.25, 7.2, [], H, 0);
+
+        W(3.0, 10.2, 6.25, 10.2, [[3.75, 4.35], [4.95, 5.55]], H, 0);
+
+        W(6.25, 9.7, 6.45, 9.7, [], H, 0);
+        W(7.35, 9.7, 9.5, 9.7, [[7.8, 8.4], [8.65, 9.25]], H, 0);
+
+        // =========================================================================
+        // 4. BALOK GAWANG, RING BALK & GARIS SIKU
+        // =========================================================================
+        W(1.85, 3.0, 2.75, 3.0, [], H_LOW, 2.1, true);
+        W(9.75, 3.0, 10.65, 3.0, [], H_LOW, 2.1, true);
+        [
+            [8.0, 0.0, 8.0, 0.85],
+            [3.0, 3.0, 3.0, 3.9],
+            [6.25, 4.9, 6.25, 5.8],
+            [6.25, 6.0, 6.25, 7.2],
+            [5.05, 7.2, 5.95, 7.2],
+            [6.45, 9.7, 7.35, 9.7]
+        ].forEach(a => W(a[0], a[1], a[2], a[3], [], H, 2.1, true));
+
+        [
+            [3.0, 0.0, 3.0, 3.0],
+            [6.25, 0.0, 6.25, 3.0],
+            [9.5, 0.0, 9.5, 3.0]
+        ].forEach(b => W(b[0], b[1], b[2], b[3], [], H, 3.15, true));
+
+        [
+            [0 + hT, 0 + hT, Y_DROP, H_LOW], [0 + hT, 3.0 - hT, Y_DROP, H_LOW],
+            [8.0 - hT, 0 + hT, Y_DROP, H], [11.0 - hT, 3.0 - hT, Y_DROP, H_LOW], [11.0 - hT, 1.5 + hT, Y_DROP, H_LOW],
+            [8.0 + hT, 0 + hT, Y_DROP, H], [11.0 - hT, 0 + hT, Y_DROP, H_LOW], [8.0 + hT, 1.5 - hT, Y_DROP, H], [11.0 - hT, 1.5 - hT, Y_DROP, H_LOW],
+            [3.0 + hT, 3.0 + hT, 0, H], [6.25 - hT, 3.0 + hT, 0, H], [3.0 + hT, 7.2 - hT, 0, H], [6.25 - hT, 7.2 - hT, 0, H],
+            [6.25 + hT, 3.0 + hT, 0, H], [9.5 - hT, 3.0 + hT, 0, H], [6.25 + hT, 6.0 - hT, 0, H], [9.5 - hT, 6.0 - hT, 0, H],
+            [3.0 + hT, 7.2 + hT, 0, H], [6.25 - hT, 7.2 + hT, 0, H], [3.0 + hT, 10.2 - hT, 0, H], [6.25 - hT, 10.2 - hT, 0, H],
+            [6.25 + hT, 6.0 + hT, 0, H], [9.5 - hT, 6.0 + hT, 0, H], [6.25 + hT, 9.7 - hT, 0, H], [9.5 - hT, 9.7 - hT, 0, H],
+            [-hT, -hT, Y_DROP, H_LOW], [-hT, 3.0 + hT, Y_DROP, H_LOW], [11.0 + hT, -hT, Y_DROP, H_LOW], [11.0 + hT, 3.0 + hT, Y_DROP, H_LOW],
+            [3.0 - hT, 10.2 + hT, 0, H], [6.25 + hT, 10.2 + hT, 0, H], [9.5 + hT, 9.7 + hT, 0, H]
+        ].forEach(([cx, cz, botY, topY]) => cornerLine(cx, cz, botY, topY));
+
+        // =========================================================================
+        // 5. TIANG TERAS DEPAN
+        // =========================================================================
+        [3.0 - hT, 6.125, 9.5 + hT - 0.25].forEach((x, idx) => {
+            const pJit = (idx + 1) * 0.0001;
+            box(x, Y_DROP, 11.95, x + 0.25, H_TERAS, 12.2, wallM, 0);
+            box(x - 0.01, Y_DROP + 0.002 + pJit, 11.94, x + 0.26, Y_DROP + 0.10 + pJit, 12.21, plinthM, 0);
+            cornerLine(x, 11.95, Y_DROP, H_TERAS);
+            cornerLine(x + 0.25, 11.95, Y_DROP, H_TERAS);
+            cornerLine(x, 12.2, Y_DROP, H_TERAS);
+            cornerLine(x + 0.25, 12.2, Y_DROP, H_TERAS);
+        });
+
+        // =========================================================================
+        // 6. DAUN PINTU
+        // =========================================================================
+        D(2.75, 3.0, 0.9, -150, Y_DROP);
+        D(10.65, 3.0, 0.9, -150, Y_DROP);
+        D(8.0, 0.0, 0.85, 32, Y_DROP);
+        D(3.0, 3.0, 0.9, 25, 0);
+        D(6.25, 5.8, 0.9, -25, 0);
+        D(5.95, 7.2, 0.9, 125, 0);
+        D(6.45, 9.7, 0.9, -32, 0);
+
+        // =========================================================================
+        // 7. ATAP GELOMBANG ALA ASBES + NOK BUBUNGAN + PLAFON INTERIOR
+        // =========================================================================
+        const roofs = new T.Group();
+        scene.add(roofs);
+
+        // Plafon interior
+        box(0.0, H_LOW - 0.02, 0.0, 3.0, H_LOW, 3.0, ceilingM, 0, roofs);
+        box(3.0, H - 0.02, 0.0, 9.5, H, 3.0, ceilingM, 0, roofs);
+        box(9.5, H_LOW - 0.02, 0.0, 11.0, H_LOW, 3.0, ceilingM, 0, roofs);
+
+        box(3.0, H - 0.02, 3.0, 6.25, H, 10.2, ceilingM, 0, roofs);
+        box(6.25, H - 0.02, 3.0, 9.5, H, 9.7, ceilingM, 0, roofs);
+
+        // Pembentuk lembaran atap asbes gelombang 3D presisi (gelombang searah kemiringan air)
+        function addAsbesSlope(xMin, xMax, zStart, yStart, zEnd, yEnd, opts = {}) {
+            const pitch = opts.pitch || 0.14;
+            const amp = opts.amp || 0.019;
+            const thick = opts.thick || 0.012;
+            const ns = opts.segs || 4;
+
+            const widthX = xMax - xMin;
+            const dz = zEnd - zStart;
+            const dy = yEnd - yStart;
+            const slopeLen = Math.hypot(dz, dy);
+
+            const ny = Math.abs(dz) / slopeLen;
+            const nz = dz >= 0 ? -dy / slopeLen : dy / slopeLen;
+
+            const nx = Math.max(12, Math.round(widthX / (pitch / 6)));
+            const cols = nx + 1;
+            const rows = ns + 1;
+            const layerVerts = cols * rows;
+
+            const positions = new Float32Array(layerVerts * 2 * 3);
+            const uvs = new Float32Array(layerVerts * 2 * 2);
+
+            for (let j = 0; j < rows; j++) {
+                const vFrac = j / ns;
+                const zBase = zStart + dz * vFrac;
+                const yBase = yStart + dy * vFrac;
+                const sDist = slopeLen * vFrac;
+
+                for (let i = 0; i < cols; i++) {
+                    const uFrac = i / nx;
+                    const x = xMin + widthX * uFrac;
+                    const wave = amp * Math.sin(((x - xMin) / pitch) * Math.PI * 2);
+
+                    const idxTop = j * cols + i;
+                    const idxBot = layerVerts + idxTop;
+
+                    const offTop = wave + thick * 0.5;
+                    const offBot = wave - thick * 0.5;
+
+                    positions[idxTop * 3] = x;
+                    positions[idxTop * 3 + 1] = yBase + offTop * ny;
+                    positions[idxTop * 3 + 2] = zBase + offTop * nz;
+
+                    positions[idxBot * 3] = x;
+                    positions[idxBot * 3 + 1] = yBase + offBot * ny;
+                    positions[idxBot * 3 + 2] = zBase + offBot * nz;
+
+                    const u = (x - xMin) / 1.05;
+                    const v = sDist / 1.80;
+                    uvs[idxTop * 2] = u;
+                    uvs[idxTop * 2 + 1] = v;
+                    uvs[idxBot * 2] = u;
+                    uvs[idxBot * 2 + 1] = v;
+                }
+            }
+
+            const indices = [];
+            const flipTop = dz < 0;
+
+            for (let j = 0; j < ns; j++) {
+                for (let i = 0; i < nx; i++) {
+                    const a = j * cols + i;
+                    const b = a + 1;
+                    const c = a + cols;
+                    const d = c + 1;
+                    if (flipTop) {
+                        indices.push(a, b, c, b, d, c);
+                    } else {
+                        indices.push(a, c, b, b, c, d);
+                    }
+
+                    const ba = layerVerts + a;
+                    const bb = layerVerts + b;
+                    const bc = layerVerts + c;
+                    const bd = layerVerts + d;
+                    if (flipTop) {
+                        indices.push(ba, bc, bb, bb, bc, bd);
+                    } else {
+                        indices.push(ba, bb, bc, bb, bd, bc);
+                    }
+                }
+            }
+
+            for (let i = 0; i < nx; i++) {
+                const t0 = i, t1 = i + 1;
+                const b0 = layerVerts + i, b1 = layerVerts + i + 1;
+                indices.push(t0, t1, b0, t1, b1, b0);
+
+                const rOff = ns * cols;
+                const rt0 = rOff + i, rt1 = rOff + i + 1;
+                const rb0 = layerVerts + rt0, rb1 = layerVerts + rt1;
+                indices.push(rt0, rb0, rt1, rt1, rb0, rb1);
+            }
+
+            for (let j = 0; j < ns; j++) {
+                const lt0 = j * cols, lt1 = (j + 1) * cols;
+                const lb0 = layerVerts + lt0, lb1 = layerVerts + lt1;
+                indices.push(lt0, lb0, lt1, lt1, lb0, lb1);
+
+                const rt0 = j * cols + nx, rt1 = (j + 1) * cols + nx;
+                const rb0 = layerVerts + rt0, rb1 = layerVerts + rt1;
+                indices.push(rt0, rt1, rb0, rt1, rb1, rb0);
+            }
+
+            const geo = new T.BufferGeometry();
+            geo.setAttribute('position', new T.BufferAttribute(positions, 3));
+            geo.setAttribute('uv', new T.BufferAttribute(uvs, 2));
+            geo.setIndex(indices);
+            geo.computeVertexNormals();
+
+            const mesh = new T.Mesh(geo, asbesM);
+            roofs.add(mesh);
+
+            const borderPts = [];
+            const pushEdgeLine = (idxA, idxB) => {
+                borderPts.push(
+                    positions[idxA * 3], positions[idxA * 3 + 1], positions[idxA * 3 + 2],
+                    positions[idxB * 3], positions[idxB * 3 + 1], positions[idxB * 3 + 2]
+                );
+            };
+            for (let i = 0; i < nx; i++) {
+                pushEdgeLine(i, i + 1);
+                pushEdgeLine(ns * cols + i, ns * cols + i + 1);
+            }
+            pushEdgeLine(0, ns * cols);
+            pushEdgeLine(nx, ns * cols + nx);
+
+            const lineGeo = new T.BufferGeometry();
+            lineGeo.setAttribute('position', new T.Float32BufferAttribute(borderPts, 3));
+            roofs.add(new T.LineSegments(lineGeo, edgeM));
+        }
+
+        function addAsbesRidge(xMin, xMax, zCenter, yPeak, slopeRatio) {
+            const halfSpan = 0.23;
+            const drop = halfSpan * slopeRatio;
+            const t = 0.014;
+
+            const s = new T.Shape();
+            s.moveTo(-halfSpan, -drop);
+            s.quadraticCurveTo(0, 0.055, halfSpan, -drop);
+            s.lineTo(halfSpan, -drop - t);
+            s.quadraticCurveTo(0, 0.055 - t, -halfSpan, -drop - t);
+            s.closePath();
+
+            const geo = new T.ExtrudeGeometry(s, {
+                depth: xMax - xMin,
+                bevelEnabled: false,
+                curveSegments: 10
+            });
+            const mesh = new T.Mesh(geo, asbesRidgeM);
+            mesh.rotation.y = Math.PI / 2;
+            mesh.position.set(xMin, yPeak + 0.022, zCenter);
+            roofs.add(mesh);
+
+            const edge = new T.LineSegments(new T.EdgesGeometry(geo, 25), edgeM);
+            edge.rotation.copy(mesh.rotation);
+            edge.position.copy(mesh.position);
+            roofs.add(edge);
+        }
+
+        // 7a. Atap Pelana Utama
+        (function buildMainAsbesGable(x0, z0, x1, z1, rh, o) {
+            const zMid = (z0 + z1) / 2;
+            const halfWallZ = z1 - zMid;
+            const halfRoofZ = halfWallZ + o;
+            const slopeRatio = rh / halfRoofZ;
+            const yPeak = H + rh;
+
+            const clearance = 0.045;
+            const peakOffset = rh - clearance;
+            const edgeOffset = Math.max(0.01, peakOffset - halfWallZ * slopeRatio);
+
+            const gShape = new T.Shape();
+            gShape.moveTo(-halfWallZ, 0);
+            gShape.lineTo(halfWallZ, 0);
+            gShape.lineTo(halfWallZ, edgeOffset);
+            gShape.lineTo(0, peakOffset);
+            gShape.lineTo(-halfWallZ, edgeOffset);
+            gShape.closePath();
+
+            const gGeo = new T.ExtrudeGeometry(gShape, {
+                depth: (x1 - x0) + TH,
+                bevelEnabled: false
+            });
+            const gMesh = new T.Mesh(gGeo, wallM);
+            gMesh.rotation.y = Math.PI / 2;
+            gMesh.position.set(x0 - hT, H, zMid);
+            roofs.add(gMesh);
+
+            addAsbesSlope(x0 - o, x1 + o, zMid, yPeak, z1 + o, H);
+            addAsbesSlope(x0 - o, x1 + o, zMid, yPeak, z0 - o, H);
+            addAsbesRidge(x0 - o - 0.015, x1 + o + 0.015, zMid, yPeak, slopeRatio);
+        })(3.0, 0, 9.5, 10.2, 1.9, 0.4);
+
+        // 7b. Atap Sayap Kiri & Sayap Kanan
+        function wingAsbes(roofX0, roofX1, wallX0, wallX1, baseH) {
+            addAsbesSlope(roofX0, roofX1, 3.4, baseH + 1.32, -0.4, baseH);
+
+            const clearance = 0.045;
+            const yBack = baseH + 1.32 * (0.4 / 3.8) - clearance;
+            const yFront = baseH + 1.32 * (3.4 / 3.8) - clearance;
+            const wShape = new T.Shape();
+            wShape.moveTo(0, 0);
+            wShape.lineTo(-3.0, 0);
+            wShape.lineTo(-3.0, Math.max(0.01, yFront - baseH));
+            wShape.lineTo(0, Math.max(0.01, yBack - baseH));
+            wShape.closePath();
+
+            const wGeo = new T.ExtrudeGeometry(wShape, {
+                depth: wallX1 - wallX0,
+                bevelEnabled: false
+            });
+            const wMesh = new T.Mesh(wGeo, wallM);
+            wMesh.rotation.y = Math.PI / 2;
+            wMesh.position.set(wallX0, baseH, 0);
+            roofs.add(wMesh);
+        }
+        wingAsbes(-0.4, 2.6, -hT, 2.6, H_LOW);
+        wingAsbes(9.9, 11.4, 9.9, 11.0 + hT, H_LOW);
+
+        // 7c. Kanopi Teras Depan
+        addAsbesSlope(2.9, 9.6, 9.7, 3.44, 12.6, 2.98);
+
+        // =========================================================================
+        // 8. GARIS UKUR PRESISI STRIP / PUTUS-PUTUS (METER) UNTUK TUKANG
+        // =========================================================================
+        const dims = new T.Group();
+        scene.add(dims);
+
+        const dimDashM = new T.LineDashedMaterial({
+            color: 0xdc2626,
+            dashSize: 0.16,
+            gapSize: 0.1
+        });
+        const dimTickM = new T.LineBasicMaterial({ color: 0xdc2626 });
+
+        function dimLabel(txt, x, y, z, scale = 0.72) {
+            const cv = document.createElement('canvas');
+            cv.width = 256;
+            cv.height = 96;
+            const g = cv.getContext('2d');
+            g.fillStyle = 'rgba(255,255,255,0.92)';
+            g.strokeStyle = '#dc2626';
+            g.lineWidth = 5;
+            g.beginPath();
+            g.roundRect(14, 16, 228, 64, 14);
+            g.fill();
+            g.stroke();
+            g.fillStyle = '#b91c1c';
+            g.font = 'bold 34px system-ui, sans-serif';
+            g.textAlign = 'center';
+            g.textBaseline = 'middle';
+            g.fillText(txt, 128, 50);
+            const sp = new T.Sprite(new T.SpriteMaterial({
+                map: new T.CanvasTexture(cv),
+                depthTest: false
+            }));
+            sp.position.set(x, y, z);
+            sp.scale.set(scale * 2.2, scale * 0.82, 1);
+            dims.add(sp);
+        }
+
+        function dimH(x1, z1, x2, z2, txt, tickDir = [0, 0], labelOffset = [0, 0], baseY = 0) {
+            const y = baseY + 0.04, t = 0.16;
+            const [tx, tz] = tickDir;
+
+            const mainLine = new T.Line(
+                new T.BufferGeometry().setFromPoints([
+                    new T.Vector3(x1, y, z1),
+                    new T.Vector3(x2, y, z2)
+                ]),
+                dimDashM
+            );
+            mainLine.computeLineDistances();
+            dims.add(mainLine);
+
+            const ticks = new T.LineSegments(
+                new T.BufferGeometry().setFromPoints([
+                    new T.Vector3(x1 - tx * t, y, z1 - tz * t), new T.Vector3(x1 + tx * t, y, z1 + tz * t),
+                    new T.Vector3(x2 - tx * t, y, z2 - tz * t), new T.Vector3(x2 + tx * t, y, z2 + tz * t)
+                ]),
+                dimTickM
+            );
+            dims.add(ticks);
+
+            dimLabel(txt, (x1 + x2) / 2 + labelOffset[0], baseY + 0.28, (z1 + z2) / 2 + labelOffset[1], 0.65);
+        }
+
+        function dimV(x, z, y1, y2, txt, offsetX = 0.35, offsetZ = 0) {
+            const t = 0.18;
+            const px = x + offsetX, pz = z + offsetZ;
+
+            const vLine = new T.Line(
+                new T.BufferGeometry().setFromPoints([
+                    new T.Vector3(px, y1, pz),
+                    new T.Vector3(px, y2, pz)
+                ]),
+                dimDashM
+            );
+            vLine.computeLineDistances();
+            dims.add(vLine);
+
+            const projLines = new T.LineSegments(
+                new T.BufferGeometry().setFromPoints([
+                    new T.Vector3(x, y1, z), new T.Vector3(px + t, y1, pz),
+                    new T.Vector3(x, y2, z), new T.Vector3(px + t, y2, pz)
+                ]),
+                dimDashM
+            );
+            projLines.computeLineDistances();
+            dims.add(projLines);
+
+            dimLabel(txt, px + 0.55, (y1 + y2) / 2, pz, 0.75);
+        }
+
+        dimH(0.0, -0.55, 8.0, -0.55, '8m', [0, 1], [0, -0.35], Y_DROP);
+        dimH(8.0, -0.55, 11.0, -0.55, '3m', [0, 1], [0, -0.35], Y_DROP);
+
+        dimH(-0.55, 0.0, -0.55, 3.0, '3m', [1, 0], [-0.45, 0], Y_DROP);
+        dimH(11.55, 0.0, 11.55, 3.0, '3m', [1, 0], [0.45, 0], Y_DROP);
+        dimH(0.0, 3.45, 3.0, 3.45, '3m', [0, 1], [0, 0.35], Y_DROP);
+        dimH(9.5, 3.45, 11.0, 3.45, '1.5m', [0, 1], [0, 0.35], Y_DROP);
+        dimH(3.0, 2.55, 9.5, 2.55, '6.5m', [0, 1], [0, -0.32], Y_DROP);
+
+        dimH(2.45, 3.0, 2.45, 10.2, '7.2m', [1, 0], [-0.55, 0], 0);
+        dimH(2.45, 10.2, 2.45, 12.2, '2m', [1, 0], [-0.45, 0], Y_DROP);
+        dimH(10.05, 3.0, 10.05, 9.7, '6.7m', [1, 0], [0.55, 0], 0);
+        dimH(10.05, 9.7, 10.05, 12.2, '2.5m', [1, 0], [0.5, 0], Y_DROP);
+        dimH(3.0, 12.75, 9.5, 12.75, '6.5m', [0, 1], [0, 0.38], Y_DROP);
+
+        dimH(5.9, 3.0, 5.9, 7.2, '4.2m', [1, 0], [-0.48, 0], 0);
+        dimH(6.6, 6.0, 6.6, 7.2, '1.25m', [1, 0], [0.52, 0], 0);
+        dimH(9.15, 3.0, 9.15, 6.0, '3m', [1, 0], [-0.38, 0], 0);
+        dimH(9.15, 6.0, 9.15, 9.7, '3.7m', [1, 0], [-0.42, 0], 0);
+        dimH(3.35, 7.2, 3.35, 10.2, '3m', [1, 0], [0.38, 0], 0);
+        dimH(3.0, 10.55, 6.25, 10.55, '3.25m', [0, 1], [0, 0.32], Y_DROP);
+        dimH(6.25, 10.05, 9.5, 10.05, '3.25m', [0, 1], [0, 0.32], Y_DROP);
+        dimH(6.55, 9.7, 6.55, 10.2, '50cm', [1, 0], [0.48, 0], Y_DROP);
+
+        dimV(0.0, 0.0, Y_DROP, H_LOW, 'Tinggi 3.2m', -0.95, 0);
+        dimV(11.0, 3.0, Y_DROP, H_LOW, 'Tinggi 3.2m', 0.45, 0);
+        dimV(9.5, 6.0, 0, H, 'Tinggi 3.5m', 0.45, 0);
+        dimV(9.5, 12.2, Y_DROP, H_TERAS, 'Tiang 3m', 0.45, 0);
+        dimV(3.0, 12.2, Y_DROP, 0, 'Turun 10cm', -1.05, 0);
+
+        // =========================================================================
+        // 9. FITUR POV 360° TEPAT DI TENGAH TIAP RUANGAN
+        // =========================================================================
+        const povGroup = new T.Group();
+        povGroup.visible = false;
+        scene.add(povGroup);
+
+        const ROOMS = [
+            { name: 'Teras depan', x: 6.25, z: 10.95, yaw: Math.PI, floorY: Y_DROP },
+            { name: 'Ruang tamu', x: 7.875, z: 7.85, yaw: Math.PI, floorY: 0 },
+            { name: 'Kamar tidur tamu', x: 4.625, z: 8.70, yaw: 0, floorY: 0 },
+            { name: 'Kamar tidur utama', x: 7.875, z: 4.50, yaw: -Math.PI / 2, floorY: 0 },
+            { name: 'Ruang santai', x: 4.625, z: 5.10, yaw: Math.PI / 2, floorY: 0 },
+            { name: 'Dapur & Perkakas', x: 4.00, z: 1.50, yaw: 0, floorY: Y_DROP },
+            { name: 'Kamar mandi', x: 9.50, z: 0.75, yaw: -Math.PI / 2, floorY: Y_DROP }
+        ];
+
+        const povHotspots = [];
+        const povNav = document.getElementById('povNav');
+
+        function makeHotspotTexture(label) {
+            const cv = document.createElement('canvas');
+            cv.width = 320;
+            cv.height = 140;
+            const g = cv.getContext('2d');
+            g.fillStyle = 'rgba(2, 132, 199, 0.94)';
+            g.strokeStyle = '#ffffff';
+            g.lineWidth = 6;
+            g.beginPath();
+            g.arc(160, 44, 32, 0, Math.PI * 2);
+            g.fill();
+            g.stroke();
+            g.fillStyle = '#ffffff';
+            g.font = 'bold 22px system-ui, sans-serif';
+            g.textAlign = 'center';
+            g.textBaseline = 'middle';
+            g.fillText('360°', 160, 45);
+            g.fillStyle = 'rgba(15, 23, 42, 0.88)';
+            g.beginPath();
+            g.roundRect(24, 86, 272, 42, 12);
+            g.fill();
+            g.fillStyle = '#ffffff';
+            g.font = 'bold 22px system-ui, sans-serif';
+            g.fillText(label, 160, 108);
+            return new T.CanvasTexture(cv);
+        }
+
+        ROOMS.forEach((rm, idx) => {
+            const ring = new T.Mesh(
+                new T.RingGeometry(0.18, 0.34, 32),
+                new T.MeshBasicMaterial({ color: 0x0284c7, side: T.DoubleSide })
+            );
+            ring.rotation.x = -Math.PI / 2;
+            ring.position.set(rm.x, rm.floorY + 0.03, rm.z);
+            ring.userData.roomIndex = idx;
+            povGroup.add(ring);
+
+            const sp = new T.Sprite(new T.SpriteMaterial({
+                map: makeHotspotTexture(rm.name),
+                depthTest: false
+            }));
+            sp.position.set(rm.x, rm.floorY + 1.35, rm.z);
+            sp.scale.set(1.9, 0.83, 1);
+            sp.userData.roomIndex = idx;
+            povGroup.add(sp);
+            povHotspots.push(ring, sp);
+
+            const btn = document.createElement('button');
+            btn.textContent = rm.name;
+            btn.onclick = () => enterRoomPOV(idx);
+            povNav.appendChild(btn);
+        });
+
+        // Kontrol Kamera Orbit & Mode POV 360°
+        let povMode = false;
+        let activeRoom = -1;
+        let povYaw = 0, povPitch = 0, povFov = 75;
+        let th = -0.5, ph = 0.9, d = 24;
+        const tg = new T.Vector3(5.5, 0, 6.1);
+
+        function enterRoomPOV(idx) {
+            const rm = ROOMS[idx];
+            activeRoom = idx;
+            povYaw = rm.yaw;
+            povPitch = 0;
+            povFov = 75;
+            cam.fov = povFov;
+            cam.updateProjectionMatrix();
+            povHotspots.forEach(obj => {
+                obj.visible = obj.userData.roomIndex !== idx;
+            });
+            [...povNav.children].forEach((b, i) => b.classList.toggle('active', i === idx));
+            upd();
+        }
+
+        function togglePOV(forceState) {
+            povMode = typeof forceState === 'boolean' ? forceState : !povMode;
+            v.textContent = povMode ? 'Nonaktifkan POV' : 'Aktifkan POV';
+            v.classList.toggle('active', povMode);
+            povGroup.visible = povMode;
+            povNav.style.display = povMode ? 'flex' : 'none';
+
+            if (povMode) {
+                activeRoom = -1;
+                povHotspots.forEach(obj => obj.visible = true);
+                [...povNav.children].forEach(b => b.classList.remove('active'));
+                if (!roofs.visible) {
+                    roofs.visible = true;
+                    r.textContent = 'Hilangkan atap';
+                }
+            } else {
+                activeRoom = -1;
+                cam.fov = 50;
+                cam.updateProjectionMatrix();
+                th = -0.5; ph = 0.9; d = 24;
+                upd();
+            }
+        }
+
+        function upd() {
+            if (povMode && activeRoom >= 0) {
+                const rm = ROOMS[activeRoom];
+                const eyeY = rm.floorY + 1.65;
+                cam.position.set(rm.x, eyeY, rm.z);
+                const lookX = rm.x + Math.sin(povYaw) * Math.cos(povPitch);
+                const lookY = eyeY + Math.sin(povPitch);
+                const lookZ = rm.z + Math.cos(povYaw) * Math.cos(povPitch);
+                cam.lookAt(lookX, lookY, lookZ);
+                return;
+            }
+            cam.position.set(
+                tg.x + d * Math.sin(th) * Math.cos(ph),
+                d * Math.sin(ph),
+                tg.z + d * Math.cos(th) * Math.cos(ph)
+            );
+            cam.lookAt(tg);
+        }
+        upd();
+
+        const el = ren.domElement, pts = new Map();
+        const raycaster = new T.Raycaster();
+        const pointerNDC = new T.Vector2();
+        let pd = 0, downPos = [0, 0], moved = false;
+
+        function handleHotspotClick(clientX, clientY) {
+            if (!povMode) return;
+            const rect = el.getBoundingClientRect();
+            pointerNDC.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+            pointerNDC.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+            raycaster.setFromCamera(pointerNDC, cam);
+            const visibleTargets = povHotspots.filter(o => o.visible);
+            const hits = raycaster.intersectObjects(visibleTargets, false);
+            if (hits.length > 0) {
+                enterRoomPOV(hits[0].object.userData.roomIndex);
+            }
+        }
+
+        el.addEventListener('pointerdown', e => {
+            el.setPointerCapture(e.pointerId);
+            pts.set(e.pointerId, [e.clientX, e.clientY]);
+            downPos = [e.clientX, e.clientY];
+            moved = false;
+        });
+        el.addEventListener('pointerup', e => {
+            pts.delete(e.pointerId);
+            pd = 0;
+            if (!moved && Math.hypot(e.clientX - downPos[0], e.clientY - downPos[1]) < 8) {
+                handleHotspotClick(e.clientX, e.clientY);
+            }
+        });
+        el.addEventListener('pointermove', e => {
+            if (!pts.has(e.pointerId)) return;
+            const o = pts.get(e.pointerId);
+            const dx = e.clientX - o[0];
+            const dy = e.clientY - o[1];
+            if (Math.hypot(e.clientX - downPos[0], e.clientY - downPos[1]) > 6) moved = true;
+
+            if (pts.size === 1) {
+                if (povMode && activeRoom >= 0) {
+                    povYaw += dx * 0.0055;
+                    povPitch = Math.max(-1.45, Math.min(1.45, povPitch + dy * 0.0055));
+                } else {
+                    th -= dx * 0.007;
+                    ph = Math.max(0.1, Math.min(1.55, ph + dy * 0.007));
+                }
+            }
+            pts.set(e.pointerId, [e.clientX, e.clientY]);
+            if (pts.size === 2) {
+                const [a, b] = [...pts.values()], n = Math.hypot(a[0] - b[0], a[1] - b[1]);
+                if (pd) {
+                    if (povMode && activeRoom >= 0) {
+                        povFov = Math.max(40, Math.min(100, povFov * pd / n));
+                        cam.fov = povFov;
+                        cam.updateProjectionMatrix();
+                    } else {
+                        d = Math.max(5, Math.min(50, d * pd / n));
+                    }
+                }
+                pd = n;
+            }
+            upd();
+        });
+        el.addEventListener('wheel', e => {
+            e.preventDefault();
+            if (povMode && activeRoom >= 0) {
+                povFov = Math.max(40, Math.min(100, povFov + e.deltaY * 0.03));
+                cam.fov = povFov;
+                cam.updateProjectionMatrix();
+            } else {
+                d = Math.max(5, Math.min(50, d * (1 + e.deltaY * 0.001)));
+            }
+            upd();
+        }, { passive: false });
+
+        p.onclick = () => {
+            if (povMode) togglePOV(false);
+            th = -0.5; ph = 0.9; d = 24; upd();
+        };
+        r.onclick = () => { roofs.visible = !roofs.visible; r.textContent = roofs.visible ? 'Hilangkan atap' : 'Aktifkan atap'; };
+        t.onclick = () => {
+            if (povMode && activeRoom >= 0) activeRoom = -1;
+            cam.fov = 50; cam.updateProjectionMatrix();
+            th = 0; ph = 1.55; d = 24; upd();
+        };
+        m.onclick = () => { dims.visible = !dims.visible; m.textContent = dims.visible ? 'Sembunyikan garis' : 'Tampilkan garis'; };
+        v.onclick = () => togglePOV();
+
+        addEventListener('resize', () => {
+            cam.aspect = innerWidth / innerHeight;
+            cam.updateProjectionMatrix();
+            ren.setSize(innerWidth, innerHeight);
+        });
+        (function loop() {
+            requestAnimationFrame(loop);
+            ren.render(scene, cam);
+        })();
+    </script>
+</body>
+
+</html>
