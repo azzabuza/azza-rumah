@@ -248,10 +248,17 @@ cl.rotation.copy(cm.rotation);
 cl.position.copy(cm.position);
 roofs.add(cl);
 
-// 8. GARIS UKUR PRESISI (METER) UNTUK TUKANG
+// 8. GARIS UKUR PRESISI STRIP / PUTUS-PUTUS (METER) UNTUK TUKANG
 const dims = new T.Group();
 scene.add(dims);
-const dimLineM = new T.LineBasicMaterial({ color: 0xdc2626 });
+
+// Material garis strip (---) dan garis batas solid
+const dimDashM = new T.LineDashedMaterial({
+  color: 0xdc2626,
+  dashSize: 0.16,
+  gapSize: 0.1
+});
+const dimTickM = new T.LineBasicMaterial({ color: 0xdc2626 });
 
 function dimLabel(txt, x, y, z, scale = 0.72) {
   const cv = document.createElement('canvas');
@@ -279,29 +286,62 @@ function dimLabel(txt, x, y, z, scale = 0.72) {
   dims.add(sp);
 }
 
-// Garis ukur horizontal di lantai (y = 0.04)
+// Garis ukur horizontal strip (---) di lantai (y = 0.04)
 function dimH(x1, z1, x2, z2, txt, tickDir = [0, 0], labelOffset = [0, 0]) {
   const y = 0.04, t = 0.16;
   const [tx, tz] = tickDir;
-  const pts = [
-    new T.Vector3(x1, y, z1), new T.Vector3(x2, y, z2),
-    new T.Vector3(x1 - tx * t, y, z1 - tz * t), new T.Vector3(x1 + tx * t, y, z1 + tz * t),
-    new T.Vector3(x2 - tx * t, y, z2 - tz * t), new T.Vector3(x2 + tx * t, y, z2 + tz * t)
-  ];
-  dims.add(new T.LineSegments(new T.BufferGeometry().setFromPoints(pts), dimLineM));
+
+  // Garis utama putus-putus (strip)
+  const mainLine = new T.Line(
+    new T.BufferGeometry().setFromPoints([
+      new T.Vector3(x1, y, z1),
+      new T.Vector3(x2, y, z2)
+    ]),
+    dimDashM
+  );
+  mainLine.computeLineDistances();
+  dims.add(mainLine);
+
+  // Garis batas ujung (tick)
+  const ticks = new T.LineSegments(
+    new T.BufferGeometry().setFromPoints([
+      new T.Vector3(x1 - tx * t, y, z1 - tz * t), new T.Vector3(x1 + tx * t, y, z1 + tz * t),
+      new T.Vector3(x2 - tx * t, y, z2 - tz * t), new T.Vector3(x2 + tx * t, y, z2 + tz * t)
+    ]),
+    dimTickM
+  );
+  dims.add(ticks);
+
   dimLabel(txt, (x1 + x2) / 2 + labelOffset[0], 0.28, (z1 + z2) / 2 + labelOffset[1], 0.65);
 }
 
-// Garis ukur tinggi vertikal (sumbu Y)
+// Garis ukur tinggi vertikal strip (---) pada sumbu Y
 function dimV(x, z, y1, y2, txt, offsetX = 0.35, offsetZ = 0) {
   const t = 0.18;
   const px = x + offsetX, pz = z + offsetZ;
-  const pts = [
-    new T.Vector3(px, y1, pz), new T.Vector3(px, y2, pz),
-    new T.Vector3(x, y1, z), new T.Vector3(px + t, y1, pz),
-    new T.Vector3(x, y2, z), new T.Vector3(px + t, y2, pz)
-  ];
-  dims.add(new T.LineSegments(new T.BufferGeometry().setFromPoints(pts), dimLineM));
+
+  // Garis tinggi vertikal putus-putus
+  const vLine = new T.Line(
+    new T.BufferGeometry().setFromPoints([
+      new T.Vector3(px, y1, pz),
+      new T.Vector3(px, y2, pz)
+    ]),
+    dimDashM
+  );
+  vLine.computeLineDistances();
+  dims.add(vLine);
+
+  // Garis proyeksi batas bawah & atas putus-putus
+  const projLines = new T.LineSegments(
+    new T.BufferGeometry().setFromPoints([
+      new T.Vector3(x, y1, z), new T.Vector3(px + t, y1, pz),
+      new T.Vector3(x, y2, z), new T.Vector3(px + t, y2, pz)
+    ]),
+    dimDashM
+  );
+  projLines.computeLineDistances();
+  dims.add(projLines);
+
   dimLabel(txt, px + 0.55, (y1 + y2) / 2, pz, 0.75);
 }
 
