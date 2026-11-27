@@ -32,12 +32,16 @@ ren.setSize(innerWidth, innerHeight);
 ren.setPixelRatio(Math.min(devicePixelRatio, 2));
 document.body.appendChild(ren.domElement);
 
-scene.add(new T.HemisphereLight(0xffffff, 0x8a8a8a, 0.88));
-const sun = new T.DirectionalLight(0xffffff, 0.62);
-sun.position.set(-10, 20, 25);
+// Pencahayaan 2 arah agar dinding sumbu X dan sumbu Z punya kontras bayangan siku yang alami
+scene.add(new T.HemisphereLight(0xffffff, 0x787878, 0.72));
+const sun = new T.DirectionalLight(0xffffff, 0.55);
+sun.position.set(-12, 22, 18);
 scene.add(sun);
+const fillLight = new T.DirectionalLight(0xeef6ff, 0.25);
+fillLight.position.set(14, 15, -16);
+scene.add(fillLight);
 
-// Tekstur petak keramik lantai (60x60cm) agar kontras terhadap dinding putih
+// Tekstur petak keramik lantai (60x60cm)
 function makeFloorTexture() {
   const cv = document.createElement('canvas');
   cv.width = 256;
@@ -63,15 +67,16 @@ function makeFloorTexture() {
   return tex;
 }
 
-// Material: dinding putih hangat, lantai keramik, plint abu gelap, pintu coklat kayu, jendela biru kaca, atap asbes
-const wallM    = new T.MeshLambertMaterial({ color: 0xf5f5f3 });
-const plinthM  = new T.MeshLambertMaterial({ color: 0x57534e });
-const slabM    = new T.MeshLambertMaterial({ map: makeFloorTexture() });
-const ceilingM = new T.MeshLambertMaterial({ color: 0xffffff, side: T.DoubleSide });
-const doorM    = new T.MeshLambertMaterial({ color: 0x7a441e });
-const winM     = new T.MeshLambertMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.72 });
-const roofM    = new T.MeshLambertMaterial({ color: 0x7c8288 });
-const edgeM    = new T.LineBasicMaterial({ color: 0x000000 });
+// Material
+const wallM     = new T.MeshLambertMaterial({ color: 0xf5f5f3 });
+const plinthM   = new T.MeshLambertMaterial({ color: 0x57534e });
+const slabM     = new T.MeshLambertMaterial({ map: makeFloorTexture() });
+const ceilingM  = new T.MeshLambertMaterial({ color: 0xffffff, side: T.DoubleSide });
+const doorM     = new T.MeshLambertMaterial({ color: 0x7a441e });
+const winM      = new T.MeshLambertMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.72 });
+const roofM     = new T.MeshLambertMaterial({ color: 0x7c8288 });
+const edgeM     = new T.LineBasicMaterial({ color: 0x000000 });
+const cornerM   = new T.LineBasicMaterial({ color: 0x9c9890 });
 
 function box(x0, y0, z0, x1, y1, z1, m, edge, target = scene) {
   const b = new T.Mesh(new T.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), m);
@@ -84,7 +89,16 @@ function box(x0, y0, z0, x1, y1, z1, m, edge, target = scene) {
   }
 }
 
-// Fungsi dinding berbasis koordinat meter presisi (tanpa garis tepi antar-segmen agar rapi)
+// Garis siku vertikal tipis khusus di pojok pertemuan dinding agar siku ruangan terlihat tegas tanpa garis sambungan
+function cornerLine(x, z, y0 = 0, y1 = H) {
+  const geo = new T.BufferGeometry().setFromPoints([
+    new T.Vector3(x, y0, z),
+    new T.Vector3(x, y1, z)
+  ]);
+  scene.add(new T.Line(geo, cornerM));
+}
+
+// Fungsi dinding berbasis koordinat meter presisi (mulus tanpa garis potong antar-balok)
 function W(x1, z1, x2, z2, ops = [], h = H, y0 = 0) {
   const hz = Math.abs(z1 - z2) < 1e-6;
   const a0 = hz ? Math.min(x1, x2) : Math.min(z1, z2);
@@ -214,10 +228,35 @@ W(7.35, 9.7, 9.5, 9.7, [[7.8, 8.4], [8.65, 9.25]]);
   [6.45, 9.7, 7.35, 9.7]
 ].forEach(a => W(a[0], a[1], a[2], a[3], [], H, 2.1));
 
+// 4b. Garis siku sudut dalam tiap ruangan (hanya di pojok pertemuan dinding agar siku jelas)
+const hT = TH / 2;
+[
+  // Dapur & Perkakas
+  [0 + hT, 0 + hT], [8.0 - hT, 0 + hT], [0 + hT, 3.0 - hT], [11.0 - hT, 3.0 - hT], [11.0 - hT, 1.5 + hT],
+  // Kamar Mandi
+  [8.0 + hT, 0 + hT], [11.0 - hT, 0 + hT], [8.0 + hT, 1.5 - hT], [11.0 - hT, 1.5 - hT],
+  // Ruang Santai
+  [3.0 + hT, 3.0 + hT], [6.25 - hT, 3.0 + hT], [3.0 + hT, 7.2 - hT], [6.25 - hT, 7.2 - hT],
+  // Kamar Tidur Kanan (KT 1)
+  [6.25 + hT, 3.0 + hT], [9.5 - hT, 3.0 + hT], [6.25 + hT, 6.0 - hT], [9.5 - hT, 6.0 - hT],
+  // Kamar Tidur Kiri (KT 2)
+  [3.0 + hT, 7.2 + hT], [6.25 - hT, 7.2 + hT], [3.0 + hT, 10.2 - hT], [6.25 - hT, 10.2 - hT],
+  // Ruang Tamu
+  [6.25 + hT, 6.0 + hT], [9.5 - hT, 6.0 + hT], [6.25 + hT, 9.7 - hT], [9.5 - hT, 9.7 - hT],
+  // Sudut luar bangunan
+  [-hT, -hT], [11.0 + hT, -hT], [-hT, 3.0 + hT], [11.0 + hT, 3.0 + hT],
+  [3.0 - hT, 10.2 + hT], [6.25 + hT, 10.2 + hT], [9.5 + hT, 9.7 + hT]
+].forEach(([cx, cz]) => cornerLine(cx, cz, 0, H));
+
 // 5. Tiang Teras depan (z = 12.20m, tinggi 3.0m) menumpu pas di bawah kanopi
 [3.0, 6.125, 9.25].forEach(x => {
   box(x, 0, 11.95, x + 0.25, H_TERAS, 12.2, wallM, 0);
   box(x - 0.01, 0.002, 11.94, x + 0.26, 0.10, 12.21, plinthM, 0);
+  // Garis siku 4 sudut tiang teras
+  cornerLine(x, 11.95, 0, H_TERAS);
+  cornerLine(x + 0.25, 11.95, 0, H_TERAS);
+  cornerLine(x, 12.2, 0, H_TERAS);
+  cornerLine(x + 0.25, 12.2, 0, H_TERAS);
 });
 
 // 6. Daun Pintu (coklat kayu) sesuai arah bukaan pada denah terbaru
