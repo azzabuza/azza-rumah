@@ -95,7 +95,6 @@
         ren.setPixelRatio(Math.min(devicePixelRatio, 2));
         document.body.appendChild(ren.domElement);
 
-        // Pencahayaan 2 arah agar dinding sumbu X dan sumbu Z punya kontras bayangan siku yang alami
         scene.add(new T.HemisphereLight(0xffffff, 0x787878, 0.72));
         const sun = new T.DirectionalLight(0xffffff, 0.55);
         sun.position.set(-12, 22, 18);
@@ -104,7 +103,6 @@
         fillLight.position.set(14, 15, -16);
         scene.add(fillLight);
 
-        // Tekstur modul 2x2 ubin keramik bujur sangkar presisi 60cm x 60cm (1 modul = 1.20m x 1.20m)
         function createTileTexture() {
             const cv = document.createElement('canvas');
             cv.width = 512;
@@ -133,7 +131,6 @@
             return tex;
         }
 
-        // Tekstur lembaran asbes semen berserat 100% matte/doff tanpa kilau specular (1 modul = 1.05m x 1.80m)
         function createAsbesMaterials() {
             const w = 512, h = 512;
             const cv = document.createElement('canvas');
@@ -443,7 +440,7 @@
         ].forEach(([cx, cz, botY, topY]) => cornerLine(cx, cz, botY, topY));
 
         // =========================================================================
-        // 5. TIANG & BALOK COR TERAS DEPAN
+        // 5. TIANG & BALOK COR TERAS DEPAN (DENGAN LIS ABU-ABU ATAS SEPERTI DINDING)
         // =========================================================================
         [3.0 - hT, 6.125, 9.5 + hT - 0.25].forEach((x, idx) => {
             const pJit = (idx + 1) * 0.0001;
@@ -455,8 +452,11 @@
             cornerLine(x + 0.25, 12.2, Y_DROP, H_TERAS);
         });
 
+        // Balok cor horizontal penghubung tiang teras depan + lis abu-abu atas
         const TERAS_BEAM_H = 0.22;
         box(3.0 - hT + 0.0002, H_TERAS - TERAS_BEAM_H, 11.9502, 9.5 + hT - 0.0002, H_TERAS - 0.0002, 12.1998, wallM, 0);
+        box(3.0 - hT - 0.01, H_TERAS - 0.07, 11.94, 9.5 + hT + 0.01, H_TERAS + 0.002, 12.21, plinthM, 0);
+
         [
             [3.0 - hT + 0.25, 6.125],
             [6.375, 9.5 + hT - 0.25]
@@ -467,6 +467,7 @@
             segLine(bx0, H_TERAS - TERAS_BEAM_H, 12.2, bx1, H_TERAS - TERAS_BEAM_H, 12.2);
         });
 
+        // Balok cor miring teras + lis abu-abu bagian atas sejajar kemiringan
         function addSlopedTerasBeam(xStart, z0, z1 = 12.2, w = 0.25, h = TERAS_BEAM_H) {
             const slope = 0.46 / 2.9;
             const yTop0 = H_TERAS + (z1 - z0) * slope;
@@ -489,6 +490,25 @@
             mesh.rotation.y = Math.PI / 2;
             mesh.position.set(xStart + 0.0003, 0, 0);
             scene.add(mesh);
+
+            // Lis abu-abu atas balok miring (plinthM, sama seperti atas dinding lainnya)
+            const capH = 0.07;
+            const capPadX = 0.01;
+            const cs = new T.Shape();
+            cs.moveTo(-z0, yTop0 - capH);
+            cs.lineTo(-z1, yTop1 - capH);
+            cs.lineTo(-z1, yTop1 + 0.0025);
+            cs.lineTo(-z0, yTop0 + 0.0025);
+            cs.closePath();
+
+            const cGeo = new T.ExtrudeGeometry(cs, {
+                depth: w + capPadX * 2,
+                bevelEnabled: false
+            });
+            const cMesh = new T.Mesh(cGeo, plinthM);
+            cMesh.rotation.y = Math.PI / 2;
+            cMesh.position.set(xStart - capPadX, 0, 0);
+            scene.add(cMesh);
 
             const x0 = xStart, x1 = xStart + w;
             segLine(x0, yTop0, z0, x0, yTop1, z1);
@@ -720,7 +740,7 @@
             addAsbesRidge(x0 - o - 0.015, x1 + o + 0.015, zMid, yPeak, slopeRatio);
         })(3.0, 0, 9.5, 10.2, 1.9, 0.4);
 
-        // 7b. Atap Sayap Kiri & Sayap Kanan (Ditutup rapat ke dinding utama)
+        // 7b. Atap Sayap Kiri & Sayap Kanan
         function wingAsbes(roofX0, roofX1, wallX0, wallX1, baseH) {
             addAsbesSlope(roofX0, roofX1, 3.4, baseH + 1.32, -0.4, baseH);
 
@@ -746,8 +766,8 @@
         wingAsbes(-0.4, 3.0, -hT, 3.0, H_LOW);
         wingAsbes(9.5, 11.4, 9.5, 11.0 + hT, H_LOW);
 
-        // 7c. Kanopi Teras Depan
-        addAsbesSlope(2.9, 9.6, 9.7, 3.44, 12.6, 2.98);
+        // 7c. Kanopi Teras Depan (Lebar 2.6 s/d 9.9 sama dengan atap rumah utama)
+        addAsbesSlope(3.0 - 0.4, 9.5 + 0.4, 9.7, 3.44, 12.6, 2.98);
 
         // =========================================================================
         // 8. GARIS UKUR PRESISI STRIP / PUTUS-PUTUS (METER) UNTUK TUKANG
@@ -757,7 +777,7 @@
 
         const dimDashM = new T.LineDashedMaterial({
             color: 0xdc2626,
-            dashSize: 0.15,
+            dashSize: 0.16,
             gapSize: 0.1
         });
         const dimTickM = new T.LineBasicMaterial({ color: 0xdc2626 });
