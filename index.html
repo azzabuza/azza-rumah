@@ -86,7 +86,8 @@
     <div id="povNav"></div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
-        const T = THREE, H = 3.5, H_LOW = 3.2, H_TERAS = 3.0, Y_DROP = -0.10, TH = 0.15, hT = TH / 2;
+        // H_LOW = 2.9 agar dari lantai Y_DROP (-0.10) tinggi bersih dindingnya tepat 3.0m
+        const T = THREE, H = 3.5, H_LOW = 2.9, H_TERAS = 3.0, Y_DROP = -0.10, TH = 0.15, hT = TH / 2;
         const scene = new T.Scene();
         scene.background = new T.Color(0xf4f4f4);
 
@@ -453,7 +454,6 @@
             cornerLine(x + 0.25, 12.2, Y_DROP, H_TERAS);
         });
 
-        // Balok cor horizontal penghubung tiang teras depan + lis abu-abu atas
         const TERAS_BEAM_H = 0.22;
         box(3.0 - hT + 0.0002, H_TERAS - TERAS_BEAM_H, 11.9502, 9.5 + hT - 0.0002, H_TERAS - 0.0002, 12.1998, wallM, 0);
         box(3.0 - hT - 0.01, H_TERAS - 0.07, 11.94, 9.5 + hT + 0.01, H_TERAS + 0.002, 12.21, plinthM, 0);
@@ -468,7 +468,6 @@
             segLine(bx0, H_TERAS - TERAS_BEAM_H, 12.2, bx1, H_TERAS - TERAS_BEAM_H, 12.2);
         });
 
-        // Balok cor miring teras + lis abu-abu bagian atas sejajar kemiringan
         function addSlopedTerasBeam(xStart, z0, z1 = 12.2, w = 0.25, h = TERAS_BEAM_H) {
             const slope = 0.46 / 2.9;
             const yTop0 = H_TERAS + (z1 - z0) * slope;
@@ -492,7 +491,6 @@
             mesh.position.set(xStart + 0.0003, 0, 0);
             scene.add(mesh);
 
-            // Lis abu-abu atas balok miring (plinthM, sama seperti atas dinding lainnya)
             const capH = 0.07;
             const capPadX = 0.01;
             const cs = new T.Shape();
@@ -741,7 +739,7 @@
             addAsbesRidge(x0 - o - 0.015, x1 + o + 0.015, zMid, yPeak, slopeRatio);
         })(3.0, 0, 9.5, 10.2, 1.9, 0.4);
 
-        // 7b. Atap Sayap Kiri & Sayap Kanan
+        // 7b. Atap Sayap Kiri & Sayap Kanan (Mengikuti tinggi dinding 3m / H_LOW = 2.9)
         function wingAsbes(roofX0, roofX1, wallX0, wallX1, baseH) {
             addAsbesSlope(roofX0, roofX1, 3.4, baseH + 1.32, -0.4, baseH);
 
@@ -886,8 +884,8 @@
         dimH(6.25, 10.05, 9.5, 10.05, '3.25m', [0, 1], [0, 0.32], Y_DROP);
         dimH(6.55, 9.7, 6.55, 10.2, '50cm', [1, 0], [0.48, 0], Y_DROP);
 
-        dimV(0.0, 0.0, Y_DROP, H_LOW, 'Tinggi 3.2m', -0.95, 0);
-        dimV(11.0, 3.0, Y_DROP, H_LOW, 'Tinggi 3.2m', 0.45, 0);
+        dimV(0.0, 0.0, Y_DROP, H_LOW, 'Tinggi 3m', -0.95, 0);
+        dimV(11.0, 3.0, Y_DROP, H_LOW, 'Tinggi 3m', 0.45, 0);
         dimV(9.5, 6.0, 0, H, 'Tinggi 3.5m', 0.45, 0);
         dimV(9.5, 12.2, Y_DROP, H_TERAS, 'Tiang 3m', 0.45, 0);
         dimV(3.0, 12.2, Y_DROP, 0, 'Turun 10cm', -1.05, 0);
@@ -967,7 +965,6 @@
             povNav.appendChild(btn);
         });
 
-        // Kontrol Kamera Orbit, Mode POV 360°, & Panorama Otomatis
         let povMode = false;
         let panoramaMode = false;
         let activeRoom = -1;
@@ -1024,7 +1021,6 @@
                 if (povMode) togglePOV(false);
                 cam.fov = 50;
                 cam.updateProjectionMatrix();
-                // Ketinggian & jarak kamera disamakan dengan mode Perspektif
                 ph = 0.9;
                 d = 24;
                 upd();
@@ -1155,7 +1151,7 @@
             lastTime = now;
 
             if (panoramaMode && pts.size === 0) {
-                th += dt * 0.30;
+                th += dt * 0.35;
                 upd();
             }
 
