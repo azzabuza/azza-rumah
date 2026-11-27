@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <html lang="id"><head><meta charset="utf-8"><title>Denah Rumah 3D</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
 <style>
-:root{--bg:#f4f4f4;--fg:#1a1a1a;--btn:#fff;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+:root{color-scheme:light;--bg:#f4f4f4;--fg:#1a1a1a;--btn:#fff;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,sans-serif;overflow:hidden}
 #ui{position:fixed;left:10px;top:calc(10px + env(safe-area-inset-top,0px));z-index:5;display:flex;gap:6px;flex-wrap:wrap}
 button{background:var(--btn);color:var(--fg);border:1px solid #8886;border-radius:8px;padding:8px 12px;font-size:14px;cursor:pointer}
@@ -22,8 +23,8 @@ canvas{display:block;touch-action:none}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 const T = THREE, H = 3.5, H_LOW = 3.2, H_TERAS = 3.0, Y_DROP = -0.10, TH = 0.15, hT = TH / 2;
-const scene = new T.Scene(), dark = matchMedia('(prefers-color-scheme:dark)').matches;
-scene.background = new T.Color(dark ? 0x1c1c1c : 0xf4f4f4);
+const scene = new T.Scene();
+scene.background = new T.Color(0xf4f4f4);
 
 const cam = new T.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 200);
 const ren = new T.WebGLRenderer({ antialias: true });
