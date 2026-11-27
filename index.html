@@ -41,8 +41,8 @@ const fillLight = new T.DirectionalLight(0xeef6ff, 0.25);
 fillLight.position.set(14, 15, -16);
 scene.add(fillLight);
 
-// Tekstur petak keramik lantai (60x60cm)
-function makeFloorTexture() {
+// Tekstur petak keramik lantai seragam (0.60m x 0.60m per ubin, 2x2 ubin per 1.20m modul tekstur)
+function makeFloorTexture(widthM, depthM) {
   const cv = document.createElement('canvas');
   cv.width = 256;
   cv.height = 256;
@@ -63,20 +63,22 @@ function makeFloorTexture() {
   const tex = new T.CanvasTexture(cv);
   tex.wrapS = T.RepeatWrapping;
   tex.wrapT = T.RepeatWrapping;
-  tex.repeat.set(9, 10);
+  // Proporsional sesuai luas area (1 modul tekstur = 1.20m x 1.20m -> tiap petak keramik = 0.60m x 0.60m)
+  tex.repeat.set(widthM / 1.2, depthM / 1.2);
   return tex;
 }
 
 // Material
-const wallM     = new T.MeshLambertMaterial({ color: 0xf5f5f3 });
-const plinthM   = new T.MeshLambertMaterial({ color: 0x57534e });
-const slabM     = new T.MeshLambertMaterial({ map: makeFloorTexture() });
-const ceilingM  = new T.MeshLambertMaterial({ color: 0xffffff, side: T.DoubleSide });
-const doorM     = new T.MeshLambertMaterial({ color: 0x7a441e });
-const winM      = new T.MeshLambertMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.72 });
-const roofM     = new T.MeshLambertMaterial({ color: 0x7c8288 });
-const edgeM     = new T.LineBasicMaterial({ color: 0x000000 });
-const cornerM   = new T.LineBasicMaterial({ color: 0x9c9890 });
+const wallM        = new T.MeshLambertMaterial({ color: 0xf5f5f3 });
+const plinthM      = new T.MeshLambertMaterial({ color: 0x57534e });
+const slabBackM    = new T.MeshLambertMaterial({ map: makeFloorTexture(11.0, 3.0) });
+const slabMainM    = new T.MeshLambertMaterial({ map: makeFloorTexture(6.5, 9.2) });
+const ceilingM     = new T.MeshLambertMaterial({ color: 0xffffff, side: T.DoubleSide });
+const doorM        = new T.MeshLambertMaterial({ color: 0x7a441e });
+const winM         = new T.MeshLambertMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.72 });
+const roofM        = new T.MeshLambertMaterial({ color: 0x7c8288 });
+const edgeM        = new T.LineBasicMaterial({ color: 0x000000 });
+const cornerM      = new T.LineBasicMaterial({ color: 0x9c9890 });
 
 function box(x0, y0, z0, x1, y1, z1, m, edge, target = scene) {
   const b = new T.Mesh(new T.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), m);
@@ -167,7 +169,7 @@ function D(hx, hz, w, deg) {
 // 
 // Sumbu Y (Bawah -> Atas / Elevasi):
 //   y = -0.30 : Dasar pondasi / sloof
-//   y = 0.00  : Permukaan lantai keramik bangunan
+//   y = 0.00  : Permukaan lantai keramik bangunan (ukuran seragam 0.60m x 0.60m)
 //   y = 0.10  : Tinggi lis plint kaki dinding
 //   y = 0.90  : Ambang bawah jendela
 //   y = 2.00  : Ambang atas jendela
@@ -177,9 +179,9 @@ function D(hx, hz, w, deg) {
 //   y = 5.40  : Puncak bubungan atap pelana utama (3.50 + 1.90m)
 // =========================================================================
 
-// 1. Pondasi / lantai dasar bertekstur keramik
-box(0, -0.3, 0, 11.0, 0, 3.0, slabM, 0);
-box(3.0, -0.3, 3.0, 9.5, 0, 12.2, slabM, 0);
+// 1. Pondasi / lantai dasar dengan ukuran keramik seragam (0.60m x 0.60m) di seluruh ruangan
+box(0, -0.3, 0, 11.0, 0, 3.0, slabBackM, 0);
+box(3.0, -0.3, 3.0, 9.5, 0, 12.2, slabMainM, 0);
 
 // 2. Dinding Dapur & Perkakas + Kamar Mandi (8m + 3m = 11m x 3m, tinggi 3.5m)
 W(0, 0, 11.0, 0);
@@ -252,7 +254,6 @@ const hT = TH / 2;
 [3.0, 6.125, 9.25].forEach(x => {
   box(x, 0, 11.95, x + 0.25, H_TERAS, 12.2, wallM, 0);
   box(x - 0.01, 0.002, 11.94, x + 0.26, 0.10, 12.21, plinthM, 0);
-  // Garis siku 4 sudut tiang teras
   cornerLine(x, 11.95, 0, H_TERAS);
   cornerLine(x + 0.25, 11.95, 0, H_TERAS);
   cornerLine(x, 12.2, 0, H_TERAS);
