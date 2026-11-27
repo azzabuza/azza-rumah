@@ -7,6 +7,10 @@
 html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,sans-serif;overflow:hidden}
 #ui{position:fixed;left:10px;top:calc(10px + env(safe-area-inset-top,0px));z-index:5;display:flex;gap:6px;flex-wrap:wrap}
 button{background:var(--btn);color:var(--fg);border:1px solid #8886;border-radius:8px;padding:8px 12px;font-size:14px;cursor:pointer}
+button.active{background:#0284c7;color:#fff;border-color:#0284c7}
+#povNav{position:fixed;left:10px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:5;display:none;gap:6px;flex-wrap:wrap;max-width:calc(100vw - 20px)}
+#povNav button{font-size:12px;padding:6px 10px}
+#povHint{position:fixed;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:5;display:none;background:rgba(15,23,42,.82);color:#fff;padding:7px 11px;border-radius:8px;font-size:12px;pointer-events:none}
 canvas{display:block;touch-action:none}
 </style></head><body>
 <div id="ui">
@@ -14,7 +18,10 @@ canvas{display:block;touch-action:none}
   <button id="t">Tampak atas</button>
   <button id="r">Hilangkan atap</button>
   <button id="m">Sembunyikan garis ukur</button>
+  <button id="v">Aktifkan POV</button>
 </div>
+<div id="povNav"></div>
+<div id="povHint">Klik titik biru di tengah ruangan untuk masuk POV 360°</div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 const T = THREE, H = 3.5, H_TERAS = 3.0, TH = 0.15;
@@ -136,21 +143,18 @@ W(8.8, 1.5, 11.0, 1.5);
 W(8.8, 0.9, 8.8, 1.5);
 
 // 3. Dinding Bangunan Utama (lebar 6.5m: x=3.0 s/d x=9.5, tinggi 3.5m)
-// Dinding kiri bangunan utama (z=3.0 s/d z=10.20 = 7.2m)
 W(3.0, 3.9, 3.0, 10.2, [[4.7, 5.25], [5.65, 6.2]]);
-
-// Dinding kanan bangunan utama (z=3.0 s/d z=9.70 = 6.7m)
 W(9.5, 3.0, 9.5, 9.7, [[4.85, 5.45]]);
 
 // Dinding tengah vertikal (x = 6.25)
-W(6.25, 3.0, 6.25, 4.9);     // Atas pintu Kamar Tidur kanan
-W(6.25, 5.8, 6.25, 6.0);     // Bawah pintu Kamar Tidur kanan
-W(6.25, 7.2, 6.25, 10.2);    // Pembatas Kamar Tidur kiri & Ruang Tamu (3.0m)
+W(6.25, 3.0, 6.25, 4.9);
+W(6.25, 5.8, 6.25, 6.0);
+W(6.25, 7.2, 6.25, 10.2);
 
 // Dinding horizontal pembatas ruangan
-W(6.25, 6.0, 9.5, 6.0);      // Bawah Kamar Tidur kanan (3.25m)
-W(3.0, 7.2, 5.05, 7.2);      // Atas Kamar Tidur kiri (kiri pintu)
-W(5.95, 7.2, 6.25, 7.2);     // Atas Kamar Tidur kiri (kanan pintu)
+W(6.25, 6.0, 9.5, 6.0);
+W(3.0, 7.2, 5.05, 7.2);
+W(5.95, 7.2, 6.25, 7.2);
 
 // Dinding depan Kamar Tidur kiri (z = 10.20, lebar 3.25m) dengan 2 jendela
 W(3.0, 10.2, 6.25, 10.2, [[3.75, 4.35], [4.95, 5.55]]);
@@ -161,27 +165,27 @@ W(7.35, 9.7, 9.5, 9.7, [[7.8, 8.4], [8.65, 9.25]]);
 
 // 4. Balok gawang di atas bukaan pintu & penghubung ruangan (tinggi 2.1m s/d 3.5m)
 [
-  [1.85, 3.0, 2.75, 3.0],     // Atas pintu Dapur kiri
-  [9.75, 3.0, 10.65, 3.0],    // Atas pintu Dapur kanan
-  [8.8, 0.0, 8.8, 0.9],       // Atas pintu Kamar Mandi
-  [3.0, 3.0, 3.0, 3.9],       // Atas pintu Ruang Santai
-  [6.25, 4.9, 6.25, 5.8],     // Atas pintu Kamar Tidur kanan
-  [6.25, 6.0, 6.25, 7.2],     // Gawang penghubung Ruang Tamu & Ruang Santai (lebar 1.20m)
-  [5.05, 7.2, 5.95, 7.2],     // Atas pintu Kamar Tidur kiri
-  [6.45, 9.7, 7.35, 9.7]      // Atas pintu Utama Ruang Tamu
+  [1.85, 3.0, 2.75, 3.0],
+  [9.75, 3.0, 10.65, 3.0],
+  [8.8, 0.0, 8.8, 0.9],
+  [3.0, 3.0, 3.0, 3.9],
+  [6.25, 4.9, 6.25, 5.8],
+  [6.25, 6.0, 6.25, 7.2],
+  [5.05, 7.2, 5.95, 7.2],
+  [6.45, 9.7, 7.35, 9.7]
 ].forEach(a => W(a[0], a[1], a[2], a[3], [], H, 2.1));
 
 // 5. Tiang Teras depan (z = 12.20m, tinggi 3.0m) menumpu pas di bawah kanopi
 [3.0, 6.125, 9.25].forEach(x => box(x, 0, 11.95, x + 0.25, H_TERAS, 12.2, wallM, 1));
 
 // 6. Daun Pintu (coklat kayu) sesuai arah bukaan pada denah
-D(2.75, 3.0, 0.9, -150);      // Pintu Dapur kiri
-D(10.65, 3.0, 0.9, -150);     // Pintu Dapur kanan
-D(8.8, 0.9, 0.85, -32);       // Pintu Kamar Mandi
-D(3.0, 3.9, 0.9, 28);         // Pintu Ruang Santai
-D(6.25, 4.9, 0.9, 28);        // Pintu Kamar Tidur kanan
-D(5.05, 7.2, 0.9, 28);        // Pintu Kamar Tidur kiri
-D(7.35, 9.7, 0.9, -152);      // Pintu Utama Ruang Tamu
+D(2.75, 3.0, 0.9, -150);
+D(10.65, 3.0, 0.9, -150);
+D(8.8, 0.9, 0.85, -32);
+D(3.0, 3.9, 0.9, 28);
+D(6.25, 4.9, 0.9, 28);
+D(5.05, 7.2, 0.9, 28);
+D(7.35, 9.7, 0.9, -152);
 
 // 7. Atap Pelana Utama + Sayap Dapur + Kanopi Teras (warna abu-abu asbes)
 const roofs = new T.Group();
@@ -209,10 +213,8 @@ function gable(x0, z0, x1, z1, alongX, rh, o) {
   roofs.add(l);
 }
 
-// Atap utama menaungi bangunan utama x=3.0..9.5, z=0..10.2 (mulai dari y=3.5m)
 gable(3.0, 0, 9.5, 10.2, true, 1.9, 0.4);
 
-// Atap sayap dapur kiri (x=-0.4..2.6) & kanan (x=9.9..11.4) mengikuti kemiringan atap utama
 function wingFB(x0, x1) {
   const s = new T.Shape();
   s.moveTo(0.4, 0);
@@ -232,7 +234,6 @@ function wingFB(x0, x1) {
 wingFB(-0.4, 2.6);
 wingFB(9.9, 11.4);
 
-// Kanopi teras miring menumpu pas di atas tiang teras (y=3.0m) sampai dinding utama (y=3.5m)
 const cs = new T.Shape();
 cs.moveTo(-9.7, 3.38);
 cs.lineTo(-12.6, 2.92);
@@ -252,7 +253,6 @@ roofs.add(cl);
 const dims = new T.Group();
 scene.add(dims);
 
-// Material garis strip (---) dan garis batas solid
 const dimDashM = new T.LineDashedMaterial({
   color: 0xdc2626,
   dashSize: 0.16,
@@ -286,12 +286,10 @@ function dimLabel(txt, x, y, z, scale = 0.72) {
   dims.add(sp);
 }
 
-// Garis ukur horizontal strip (---) di lantai (y = 0.04)
 function dimH(x1, z1, x2, z2, txt, tickDir = [0, 0], labelOffset = [0, 0]) {
   const y = 0.04, t = 0.16;
   const [tx, tz] = tickDir;
 
-  // Garis utama putus-putus (strip)
   const mainLine = new T.Line(
     new T.BufferGeometry().setFromPoints([
       new T.Vector3(x1, y, z1),
@@ -302,7 +300,6 @@ function dimH(x1, z1, x2, z2, txt, tickDir = [0, 0], labelOffset = [0, 0]) {
   mainLine.computeLineDistances();
   dims.add(mainLine);
 
-  // Garis batas ujung (tick)
   const ticks = new T.LineSegments(
     new T.BufferGeometry().setFromPoints([
       new T.Vector3(x1 - tx * t, y, z1 - tz * t), new T.Vector3(x1 + tx * t, y, z1 + tz * t),
@@ -315,12 +312,10 @@ function dimH(x1, z1, x2, z2, txt, tickDir = [0, 0], labelOffset = [0, 0]) {
   dimLabel(txt, (x1 + x2) / 2 + labelOffset[0], 0.28, (z1 + z2) / 2 + labelOffset[1], 0.65);
 }
 
-// Garis ukur tinggi vertikal strip (---) pada sumbu Y
 function dimV(x, z, y1, y2, txt, offsetX = 0.35, offsetZ = 0) {
   const t = 0.18;
   const px = x + offsetX, pz = z + offsetZ;
 
-  // Garis tinggi vertikal putus-putus
   const vLine = new T.Line(
     new T.BufferGeometry().setFromPoints([
       new T.Vector3(px, y1, pz),
@@ -331,7 +326,6 @@ function dimV(x, z, y1, y2, txt, offsetX = 0.35, offsetZ = 0) {
   vLine.computeLineDistances();
   dims.add(vLine);
 
-  // Garis proyeksi batas bawah & atas putus-putus
   const projLines = new T.LineSegments(
     new T.BufferGeometry().setFromPoints([
       new T.Vector3(x, y1, z), new T.Vector3(px + t, y1, pz),
@@ -345,7 +339,6 @@ function dimV(x, z, y1, y2, txt, offsetX = 0.35, offsetZ = 0) {
   dimLabel(txt, px + 0.55, (y1 + y2) / 2, pz, 0.75);
 }
 
-// Dimensi luar bangunan (lebar & panjang)
 dimH(0.0, -0.55, 11.0, -0.55, '11m', [0, 1], [0, -0.35]);
 dimH(-0.55, 0.0, -0.55, 3.0, '3m', [1, 0], [-0.45, 0]);
 dimH(11.55, 0.0, 11.55, 3.0, '3m', [1, 0], [0.45, 0]);
@@ -353,14 +346,12 @@ dimH(0.0, 3.45, 3.0, 3.45, '3m', [0, 1], [0, 0.35]);
 dimH(9.5, 3.45, 11.0, 3.45, '1.5m', [0, 1], [0, 0.35]);
 dimH(3.0, 2.55, 9.5, 2.55, '6.5m', [0, 1], [0, -0.32]);
 
-// Dimensi samping kiri & kanan bangunan utama + teras
 dimH(2.45, 3.0, 2.45, 10.2, '7.2m', [1, 0], [-0.55, 0]);
 dimH(2.45, 10.2, 2.45, 12.2, '2m', [1, 0], [-0.45, 0]);
 dimH(10.05, 3.0, 10.05, 9.7, '6.7m', [1, 0], [0.55, 0]);
 dimH(10.05, 9.7, 10.05, 12.2, '2.5m', [1, 0], [0.5, 0]);
 dimH(3.0, 12.75, 9.5, 12.75, '6.5m', [0, 1], [0, 0.38]);
 
-// Dimensi pembagian ruangan dalam
 dimH(5.9, 3.0, 5.9, 7.2, '4.2m', [1, 0], [-0.48, 0]);
 dimH(6.6, 6.0, 6.6, 7.2, '1.2m', [1, 0], [0.48, 0]);
 dimH(9.15, 3.0, 9.15, 6.0, '3m', [1, 0], [-0.38, 0]);
@@ -370,14 +361,148 @@ dimH(3.0, 10.55, 6.25, 10.55, '3.25m', [0, 1], [0, 0.32]);
 dimH(6.25, 10.05, 9.5, 10.05, '3.25m', [0, 1], [0, 0.32]);
 dimH(6.55, 9.7, 6.55, 10.2, '50cm', [1, 0], [0.48, 0]);
 
-// Dimensi ketinggian vertikal (Tinggi bangunan 3.5m & Tiang teras 3m)
 dimV(11.0, 3.0, 0, H, 'Tinggi 3.5m', 0.45, 0);
 dimV(9.5, 12.2, 0, H_TERAS, 'Tiang 3m', 0.45, 0);
 
-// Kontrol Kamera Orbit & Zoom
+// 9. FITUR POV 360° TEPAT DI TENGAH TIAP RUANGAN
+const povGroup = new T.Group();
+povGroup.visible = false;
+scene.add(povGroup);
+
+// Koordinat titik tengah presisi tiap ruangan (x, z) & arah hadap awal (yaw)
+const ROOMS = [
+  { name: 'Dapur & Perkakas', x: 4.40,  z: 1.50,  yaw: 0 },
+  { name: 'Kamar Mandi',      x: 9.90,  z: 0.75,  yaw: -Math.PI / 2 },
+  { name: 'Ruang Santai',     x: 4.625, z: 5.10,  yaw: Math.PI / 2 },
+  { name: 'Kamar Tidur 1',    x: 7.875, z: 4.50,  yaw: -Math.PI / 2 },
+  { name: 'Kamar Tidur 2',    x: 4.625, z: 8.70,  yaw: 0 },
+  { name: 'Ruang Tamu',       x: 7.875, z: 7.85,  yaw: Math.PI },
+  { name: 'Teras',            x: 6.25,  z: 10.95, yaw: Math.PI }
+];
+
+const povHotspots = [];
+const povNav = document.getElementById('povNav');
+const povHint = document.getElementById('povHint');
+
+function makeHotspotTexture(label) {
+  const cv = document.createElement('canvas');
+  cv.width = 320;
+  cv.height = 140;
+  const g = cv.getContext('2d');
+  // Lingkaran ikon 360°
+  g.fillStyle = 'rgba(2, 132, 199, 0.94)';
+  g.strokeStyle = '#ffffff';
+  g.lineWidth = 6;
+  g.beginPath();
+  g.arc(160, 44, 32, 0, Math.PI * 2);
+  g.fill();
+  g.stroke();
+  g.fillStyle = '#ffffff';
+  g.font = 'bold 22px system-ui, sans-serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText('360°', 160, 45);
+  // Label nama ruangan
+  g.fillStyle = 'rgba(15, 23, 42, 0.88)';
+  g.beginPath();
+  g.roundRect(24, 86, 272, 42, 12);
+  g.fill();
+  g.fillStyle = '#ffffff';
+  g.font = 'bold 22px system-ui, sans-serif';
+  g.fillText(label, 160, 108);
+  return new T.CanvasTexture(cv);
+}
+
+ROOMS.forEach((rm, idx) => {
+  // Penanda lantai + sprite 360° tepat di titik tengah ruangan
+  const ring = new T.Mesh(
+    new T.RingGeometry(0.18, 0.34, 32),
+    new T.MeshBasicMaterial({ color: 0x0284c7, side: T.DoubleSide })
+  );
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.set(rm.x, 0.03, rm.z);
+  ring.userData.roomIndex = idx;
+  povGroup.add(ring);
+
+  const sp = new T.Sprite(new T.SpriteMaterial({
+    map: makeHotspotTexture(rm.name),
+    depthTest: false
+  }));
+  sp.position.set(rm.x, 1.35, rm.z);
+  sp.scale.set(1.9, 0.83, 1);
+  sp.userData.roomIndex = idx;
+  povGroup.add(sp);
+  povHotspots.push(ring, sp);
+
+  // Tombol navigasi cepat antar ruangan saat mode POV aktif
+  const btn = document.createElement('button');
+  btn.textContent = rm.name;
+  btn.onclick = () => enterRoomPOV(idx);
+  povNav.appendChild(btn);
+});
+
+// Kontrol Kamera Orbit & Mode POV 360°
+let povMode = false;
+let activeRoom = -1;
+let povYaw = 0, povPitch = 0, povFov = 75;
 let th = -0.5, ph = 0.9, d = 24;
 const tg = new T.Vector3(5.5, 0, 6.1);
+
+function enterRoomPOV(idx) {
+  const rm = ROOMS[idx];
+  activeRoom = idx;
+  povYaw = rm.yaw;
+  povPitch = 0;
+  povFov = 75;
+  cam.fov = povFov;
+  cam.updateProjectionMatrix();
+  // Sembunyikan hotspot ruangan yang sedang dimasuki agar tidak menghalangi pandangan
+  povHotspots.forEach(obj => {
+    obj.visible = obj.userData.roomIndex !== idx;
+  });
+  [...povNav.children].forEach((b, i) => b.classList.toggle('active', i === idx));
+  povHint.textContent = `POV 360°: ${rm.name} — Geser untuk melihat sekeliling`;
+  upd();
+}
+
+function togglePOV(forceState) {
+  povMode = typeof forceState === 'boolean' ? forceState : !povMode;
+  v.textContent = povMode ? 'Nonaktifkan POV' : 'Aktifkan POV';
+  v.classList.toggle('active', povMode);
+  povGroup.visible = povMode;
+  povNav.style.display = povMode ? 'flex' : 'none';
+  povHint.style.display = povMode ? 'block' : 'none';
+
+  if (povMode) {
+    activeRoom = -1;
+    povHotspots.forEach(obj => obj.visible = true);
+    [...povNav.children].forEach(b => b.classList.remove('active'));
+    povHint.textContent = 'Klik titik 360° di tengah ruangan untuk masuk ke dalam';
+    // Otomatis aktifkan atap agar interior tertutup realistis saat dilihat dari dalam
+    if (!roofs.visible) {
+      roofs.visible = true;
+      r.textContent = 'Hilangkan atap';
+    }
+  } else {
+    activeRoom = -1;
+    cam.fov = 50;
+    cam.updateProjectionMatrix();
+    th = -0.5; ph = 0.9; d = 24;
+    upd();
+  }
+}
+
 function upd() {
+  if (povMode && activeRoom >= 0) {
+    const rm = ROOMS[activeRoom];
+    const eyeY = 1.65; // Ketinggian mata manusia berdiri (1.65m)
+    cam.position.set(rm.x, eyeY, rm.z);
+    const lookX = rm.x + Math.sin(povYaw) * Math.cos(povPitch);
+    const lookY = eyeY + Math.sin(povPitch);
+    const lookZ = rm.z + Math.cos(povYaw) * Math.cos(povPitch);
+    cam.lookAt(lookX, lookY, lookZ);
+    return;
+  }
   cam.position.set(
     tg.x + d * Math.sin(th) * Math.cos(ph),
     d * Math.sin(ph),
@@ -388,40 +513,93 @@ function upd() {
 upd();
 
 const el = ren.domElement, pts = new Map();
-let pd = 0;
+const raycaster = new T.Raycaster();
+const pointerNDC = new T.Vector2();
+let pd = 0, downPos = [0, 0], moved = false;
+
+function handleHotspotClick(clientX, clientY) {
+  if (!povMode) return;
+  const rect = el.getBoundingClientRect();
+  pointerNDC.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+  pointerNDC.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(pointerNDC, cam);
+  const visibleTargets = povHotspots.filter(o => o.visible);
+  const hits = raycaster.intersectObjects(visibleTargets, false);
+  if (hits.length > 0) {
+    enterRoomPOV(hits[0].object.userData.roomIndex);
+  }
+}
+
 el.addEventListener('pointerdown', e => {
   el.setPointerCapture(e.pointerId);
   pts.set(e.pointerId, [e.clientX, e.clientY]);
+  downPos = [e.clientX, e.clientY];
+  moved = false;
 });
 el.addEventListener('pointerup', e => {
   pts.delete(e.pointerId);
   pd = 0;
+  if (!moved && Math.hypot(e.clientX - downPos[0], e.clientY - downPos[1]) < 8) {
+    handleHotspotClick(e.clientX, e.clientY);
+  }
 });
 el.addEventListener('pointermove', e => {
   if (!pts.has(e.pointerId)) return;
   const o = pts.get(e.pointerId);
+  const dx = e.clientX - o[0];
+  const dy = e.clientY - o[1];
+  if (Math.hypot(e.clientX - downPos[0], e.clientY - downPos[1]) > 6) moved = true;
+
   if (pts.size === 1) {
-    th -= (e.clientX - o[0]) * 0.007;
-    ph = Math.max(0.1, Math.min(1.55, ph + (e.clientY - o[1]) * 0.007));
+    if (povMode && activeRoom >= 0) {
+      // Putar pandangan 360° dari titik tengah ruangan
+      povYaw += dx * 0.0055;
+      povPitch = Math.max(-1.45, Math.min(1.45, povPitch + dy * 0.0055));
+    } else {
+      th -= dx * 0.007;
+      ph = Math.max(0.1, Math.min(1.55, ph + dy * 0.007));
+    }
   }
   pts.set(e.pointerId, [e.clientX, e.clientY]);
   if (pts.size === 2) {
     const [a, b] = [...pts.values()], n = Math.hypot(a[0] - b[0], a[1] - b[1]);
-    if (pd) d = Math.max(5, Math.min(50, d * pd / n));
+    if (pd) {
+      if (povMode && activeRoom >= 0) {
+        povFov = Math.max(40, Math.min(100, povFov * pd / n));
+        cam.fov = povFov;
+        cam.updateProjectionMatrix();
+      } else {
+        d = Math.max(5, Math.min(50, d * pd / n));
+      }
+    }
     pd = n;
   }
   upd();
 });
 el.addEventListener('wheel', e => {
   e.preventDefault();
-  d = Math.max(5, Math.min(50, d * (1 + e.deltaY * 0.001)));
+  if (povMode && activeRoom >= 0) {
+    povFov = Math.max(40, Math.min(100, povFov + e.deltaY * 0.03));
+    cam.fov = povFov;
+    cam.updateProjectionMatrix();
+  } else {
+    d = Math.max(5, Math.min(50, d * (1 + e.deltaY * 0.001)));
+  }
   upd();
 }, { passive: false });
 
-p.onclick = () => { th = -0.5; ph = 0.9; d = 24; upd(); };
+p.onclick = () => {
+  if (povMode) togglePOV(false);
+  th = -0.5; ph = 0.9; d = 24; upd();
+};
 r.onclick = () => { roofs.visible = !roofs.visible; r.textContent = roofs.visible ? 'Hilangkan atap' : 'Aktifkan atap'; };
-t.onclick = () => { th = 0; ph = 1.55; d = 24; upd(); };
+t.onclick = () => {
+  if (povMode && activeRoom >= 0) activeRoom = -1;
+  cam.fov = 50; cam.updateProjectionMatrix();
+  th = 0; ph = 1.55; d = 24; upd();
+};
 m.onclick = () => { dims.visible = !dims.visible; m.textContent = dims.visible ? 'Sembunyikan garis ukur' : 'Tampilkan garis ukur'; };
+v.onclick = () => togglePOV();
 
 addEventListener('resize', () => {
   cam.aspect = innerWidth / innerHeight;
