@@ -41,7 +41,7 @@ const fillLight = new T.DirectionalLight(0xeef6ff, 0.25);
 fillLight.position.set(14, 15, -16);
 scene.add(fillLight);
 
-// Tekstur modul 2x2 ubin keramik presisi 60cm x 60cm (1 modul tekstur = 1.20m x 1.20m)
+// Tekstur modul 2x2 ubin keramik bujur sangkar presisi 60cm x 60cm (1 modul = 1.20m x 1.20m)
 function createTileTexture() {
   const cv = document.createElement('canvas');
   cv.width = 512;
@@ -52,7 +52,7 @@ function createTileTexture() {
   g.fillStyle = '#9c958b';
   g.fillRect(0, 0, 512, 512);
 
-  // 4 petak ubin (masing-masing 256x256 px = 0.60m x 0.60m) dengan garis nat presisi
+  // 4 petak ubin bujur sangkar (masing-masing 256x256 px = 0.60m x 0.60m)
   const grout = 4;
   const tiles = [
     [0, 0, '#e3ded6'],
@@ -75,16 +75,16 @@ function createTileTexture() {
 const tileTex = createTileTexture();
 
 // Material
-const wallM    = new T.MeshLambertMaterial({ color: 0xf5f5f3 });
-const plinthM  = new T.MeshLambertMaterial({ color: 0x57534e });
-const slabM    = new T.MeshLambertMaterial({ map: tileTex });
-const slabSideM= new T.MeshLambertMaterial({ color: 0xb8b2a8 });
-const ceilingM = new T.MeshLambertMaterial({ color: 0xffffff, side: T.DoubleSide });
-const doorM    = new T.MeshLambertMaterial({ color: 0x7a441e });
-const winM     = new T.MeshLambertMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.72 });
-const roofM    = new T.MeshLambertMaterial({ color: 0x7c8288 });
-const edgeM    = new T.LineBasicMaterial({ color: 0x000000 });
-const cornerM  = new T.LineBasicMaterial({ color: 0x9c9890 });
+const wallM     = new T.MeshLambertMaterial({ color: 0xf5f5f3 });
+const plinthM   = new T.MeshLambertMaterial({ color: 0x57534e });
+const slabM     = new T.MeshLambertMaterial({ map: tileTex });
+const slabSideM = new T.MeshLambertMaterial({ color: 0xb8b2a8 });
+const ceilingM  = new T.MeshLambertMaterial({ color: 0xffffff, side: T.DoubleSide });
+const doorM     = new T.MeshLambertMaterial({ color: 0x7a441e });
+const winM      = new T.MeshLambertMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.72 });
+const roofM     = new T.MeshLambertMaterial({ color: 0x7c8288 });
+const edgeM     = new T.LineBasicMaterial({ color: 0x000000 });
+const cornerM   = new T.LineBasicMaterial({ color: 0x9c9890 });
 
 function box(x0, y0, z0, x1, y1, z1, m, edge, target = scene) {
   const b = new T.Mesh(new T.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), m);
@@ -97,31 +97,35 @@ function box(x0, y0, z0, x1, y1, z1, m, edge, target = scene) {
   }
 }
 
-// Fungsi pelat lantai dengan World-Space UV Mapping (1.20m = 2 ubin @ 0.60m)
-// Menjamin setiap petak keramik berukuran tepat 60cm x 60cm & garis nat menyambung lurus antar ruangan
+// Pelat lantai non-indexed dengan World-Space UV Mapping murni 1:1 (1 petak = tepat 0.60m x 0.60m)
 function floorSlab(x0, y0, z0, x1, y1, z1) {
-  const geo = new T.BoxGeometry(x1 - x0, y1 - y0, z1 - z0);
+  const baseGeo = new T.BoxGeometry(x1 - x0, y1 - y0, z1 - z0);
+  const geo = baseGeo.toNonIndexed();
   const pos = geo.attributes.position;
   const norm = geo.attributes.normal;
   const uv = geo.attributes.uv;
   const cx = (x0 + x1) / 2;
   const cz = (z0 + z1) / 2;
-  const TILE_MODULE = 1.20; // 2 petak keramik = 1.20 meter (1 petak = 0.60m x 0.60m)
+  const TILE_MODULE = 1.20; // 2 ubin = 1.20m -> 1 ubin = tepat 0.60m x 0.60m bujur sangkar
 
   for (let i = 0; i < pos.count; i++) {
     const wx = cx + pos.getX(i);
     const wz = cz + pos.getZ(i);
-    if (Math.abs(norm.getY(i)) > 0.5) {
+    if (norm.getY(i) > 0.5) {
       uv.setXY(i, wx / TILE_MODULE, wz / TILE_MODULE);
     } else {
-      uv.setXY(i, 0.02, 0.02);
+      uv.setXY(i, 0, 0);
     }
   }
   uv.needsUpdate = true;
 
-  // Material sisi atas memakai tekstur keramik, sisi samping memakai beton plester
-  const mats = [slabSideM, slabSideM, slabM, slabSideM, slabSideM, slabSideM];
-  const mesh = new T.Mesh(geo, mats);
+  // Non-indexed BoxGeometry memiliki 36 vertex (6 sisi x 6 vertex; sisi atas berada di indeks 12..17)
+  geo.clearGroups();
+  geo.addGroup(0, 12, 1);   // sisi kanan & kiri (+X, -X)
+  geo.addGroup(12, 6, 0);   // sisi atas (+Y) -> tekstur keramik bujur sangkar
+  geo.addGroup(18, 18, 1);  // sisi bawah, depan, belakang (-Y, +Z, -Z)
+
+  const mesh = new T.Mesh(geo, [slabM, slabSideM]);
   mesh.position.set(cx, (y0 + y1) / 2, cz);
   scene.add(mesh);
 }
@@ -194,7 +198,7 @@ function D(hx, hz, w, deg, baseY = 0) {
 //   y = 3.50  : Tinggi dinding & plafon bangunan utama
 // =========================================================================
 
-// 1. Pondasi & pelat lantai dengan World-Space UV keramik presisi 60cm x 60cm
+// 1. Pondasi & pelat lantai dengan World-Space UV keramik bujur sangkar presisi 60cm x 60cm
 // Lantai Dapur & Kamar Mandi (turun 10cm: y = -0.10m)
 floorSlab(-hT, -0.35, -hT, 11.0 + hT, Y_DROP, 3.0 + hT);
 
