@@ -885,14 +885,13 @@
         dimV(3.0, 12.2, Y_DROP, 0, 'Turun 10cm', -1.05, 0);
 
         // =========================================================================
-        // 9. FITUR POV 360° TEPAT DI TENGAH TIAP RUANGAN & HALAMAN DEPAN
+        // 9. FITUR POV 360° TEPAT DI TENGAH TIAP RUANGAN
         // =========================================================================
         const povGroup = new T.Group();
         povGroup.visible = false;
         scene.add(povGroup);
 
         const ROOMS = [
-            { name: 'Halaman depan', x: 6.25, z: 14.20, yaw: Math.PI, floorY: Y_DROP },
             { name: 'Teras depan', x: 6.25, z: 10.95, yaw: Math.PI, floorY: Y_DROP },
             { name: 'Ruang tamu', x: 7.875, z: 7.85, yaw: Math.PI, floorY: 0 },
             { name: 'Kamar tidur tamu', x: 4.625, z: 8.70, yaw: 0, floorY: 0 },
