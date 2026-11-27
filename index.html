@@ -146,7 +146,6 @@
             bcv.height = h;
             const bg = bcv.getContext('2d');
 
-            // Warna abu-abu semen doff agar tidak terlihat silau/putih di bawah cahaya matahari
             g.fillStyle = '#7e848c';
             g.fillRect(0, 0, w, h);
 
@@ -179,7 +178,6 @@
                 g.fillRect(x, y, 1.5, len);
             }
 
-            // Sambungan tumpuk horizontal antar-lembar asbes
             const lapGrad = g.createLinearGradient(0, 0, 0, 14);
             lapGrad.addColorStop(0, 'rgba(30, 35, 42, 0.52)');
             lapGrad.addColorStop(0.35, 'rgba(55, 62, 70, 0.22)');
@@ -195,7 +193,6 @@
             bg.fillStyle = '#c8c8c8';
             bg.fillRect(0, h - 4, w, 4);
 
-            // Sambungan tumpuk vertikal antar-lembar asbes
             g.fillStyle = 'rgba(42, 48, 56, 0.36)';
             g.fillRect(0, 0, 4, h);
             g.fillStyle = 'rgba(180, 187, 195, 0.24)';
@@ -204,7 +201,6 @@
             bg.fillStyle = '#3c3c3c';
             bg.fillRect(0, 0, 4, h);
 
-            // Titik paku/sekrup asbes
             g.fillStyle = 'rgba(50, 56, 64, 0.55)';
             for (let px = 32; px < w; px += 96) {
                 g.beginPath();
@@ -222,7 +218,6 @@
             bumpMap.wrapT = T.RepeatWrapping;
             bumpMap.anisotropy = 8;
 
-            // MeshLambertMaterial menjamin 100% diffuse matte (nol pantulan glossy/specular)
             const sheetMat = new T.MeshLambertMaterial({
                 map,
                 bumpMap,
@@ -243,7 +238,6 @@
         const tileTex = createTileTexture();
         const { sheetMat: asbesM, ridgeMat: asbesRidgeM } = createAsbesMaterials();
 
-        // Seluruh material menggunakan MeshLambertMaterial agar sepenuhnya doff / non-glossy
         const wallM = new T.MeshLambertMaterial({ color: 0xf5f5f3 });
         const plinthM = new T.MeshLambertMaterial({ color: 0x57534e });
         const slabM = new T.MeshLambertMaterial({ map: tileTex });
@@ -265,7 +259,6 @@
             }
         }
 
-        // Pelat lantai non-indexed dengan World-Space UV Mapping murni 1:1 (1 petak = tepat 0.60m x 0.60m)
         function floorSlab(x0, y0, z0, x1, y1, z1) {
             const baseGeo = new T.BoxGeometry(x1 - x0, y1 - y0, z1 - z0);
             const geo = baseGeo.toNonIndexed();
@@ -316,7 +309,7 @@
         let wallOrder = 0;
         function W(x1, z1, x2, z2, ops = [], h = H, y0 = 0, isBeam = false) {
             const wIdx = ++wallOrder;
-            const jitY = wIdx * 0.00008; // selisih mikro 0.08mm agar sudut & sambungan plint/lis abu-abu bebas Z-fighting
+            const jitY = wIdx * 0.00008;
             const jitT = (wIdx % 7) * 0.00012;
 
             const hz = Math.abs(z1 - z2) < 1e-6;
@@ -328,14 +321,12 @@
                 hz ? box(s - hT, b, c - hT, e + hT, t, c + hT, m, 0)
                     : box(c - hT, b, s - hT, c + hT, t, e + hT, m, 0);
 
-                // Plint bawah dinding (bebas Z-fighting di semua sudut & pertigaan dinding)
                 if (!isBeam && b <= 0.01 && t > 0.12) {
                     const pT = hT + 0.012 + jitT;
                     hz ? box(s - hT, b + 0.002 + jitY, c - pT, e + hT, b + 0.10 + jitY, c + pT, plinthM, 0)
                         : box(c - pT, b + 0.002 + jitY, s - hT, c + pT, b + 0.10 + jitY, e + hT, plinthM, 0);
                 }
 
-                // Lis atas dinding (bebas Z-fighting di puncak, sudut, kusen pintu, & ring balk)
                 if (Math.abs(t - H) < 0.01 || Math.abs(t - H_LOW) < 0.01) {
                     const cT = hT + 0.01 + jitT;
                     hz ? box(s - hT, t - 0.07 - jitY, c - cT, e + hT, t + 0.002 + jitY, c + cT, plinthM, 0)
@@ -376,7 +367,6 @@
         floorSlab(3.0 - hT, -0.35, 10.2, 6.25, Y_DROP, 12.2);
         floorSlab(6.25, -0.35, 9.7, 9.5 + hT, Y_DROP, 12.2);
 
-        // Lis keramik bibir tangga penurunan 10cm (bebas Z-fighting terhadap lantai & plint)
         box(3.0 - hT, Y_DROP, 10.2 + hT - 0.01, 6.25 + hT, -0.0005, 10.2 + hT + 0.01, plinthM, 0);
         box(6.25 - hT, Y_DROP, 9.7 + hT - 0.01, 9.5 + hT, -0.0005, 9.7 + hT + 0.01, plinthM, 0);
         box(3.0 - hT - 0.015, Y_DROP, 3.0, 3.0 - hT, -0.0005, 3.9, plinthM, 0);
@@ -465,7 +455,6 @@
             cornerLine(x + 0.25, 12.2, Y_DROP, H_TERAS);
         });
 
-        // Balok cor horizontal penghubung tiang teras depan
         const TERAS_BEAM_H = 0.22;
         box(3.0 - hT + 0.0002, H_TERAS - TERAS_BEAM_H, 11.9502, 9.5 + hT - 0.0002, H_TERAS - 0.0002, 12.1998, wallM, 0);
         [
@@ -478,7 +467,6 @@
             segLine(bx0, H_TERAS - TERAS_BEAM_H, 12.2, bx1, H_TERAS - TERAS_BEAM_H, 12.2);
         });
 
-        // Balok cor miring teras (kiri, tengah, & kanan sejajar kemiringan atap kanopi asbes)
         function addSlopedTerasBeam(xStart, z0, z1 = 12.2, w = 0.25, h = TERAS_BEAM_H) {
             const slope = 0.46 / 2.9;
             const yTop0 = H_TERAS + (z1 - z0) * slope;
@@ -538,7 +526,6 @@
         box(3.0, H - 0.02, 3.0, 6.25, H, 10.2, ceilingM, 0, roofs);
         box(6.25, H - 0.02, 3.0, 9.5, H, 9.7, ceilingM, 0, roofs);
 
-        // Pembentuk lembaran atap asbes gelombang 3D presisi (gelombang searah kemiringan air)
         function addAsbesSlope(xMin, xMax, zStart, yStart, zEnd, yEnd, opts = {}) {
             const pitch = opts.pitch || 0.14;
             const amp = opts.amp || 0.019;
@@ -733,7 +720,7 @@
             addAsbesRidge(x0 - o - 0.015, x1 + o + 0.015, zMid, yPeak, slopeRatio);
         })(3.0, 0, 9.5, 10.2, 1.9, 0.4);
 
-        // 7b. Atap Sayap Kiri & Sayap Kanan
+        // 7b. Atap Sayap Kiri & Sayap Kanan (Ditutup rapat ke dinding utama)
         function wingAsbes(roofX0, roofX1, wallX0, wallX1, baseH) {
             addAsbesSlope(roofX0, roofX1, 3.4, baseH + 1.32, -0.4, baseH);
 
@@ -756,8 +743,8 @@
             wMesh.position.set(wallX0, baseH, 0);
             roofs.add(wMesh);
         }
-        wingAsbes(-0.4, 2.6, -hT, 2.6, H_LOW);
-        wingAsbes(9.9, 11.4, 9.9, 11.0 + hT, H_LOW);
+        wingAsbes(-0.4, 3.0, -hT, 3.0, H_LOW);
+        wingAsbes(9.5, 11.4, 9.5, 11.0 + hT, H_LOW);
 
         // 7c. Kanopi Teras Depan
         addAsbesSlope(2.9, 9.6, 9.7, 3.44, 12.6, 2.98);
@@ -770,7 +757,7 @@
 
         const dimDashM = new T.LineDashedMaterial({
             color: 0xdc2626,
-            dashSize: 0.16,
+            dashSize: 0.15,
             gapSize: 0.1
         });
         const dimTickM = new T.LineBasicMaterial({ color: 0xdc2626 });
@@ -959,7 +946,6 @@
             povNav.appendChild(btn);
         });
 
-        // Kontrol Kamera Orbit & Mode POV 360°
         let povMode = false;
         let activeRoom = -1;
         let povYaw = 0, povPitch = 0, povFov = 75;
