@@ -10,7 +10,6 @@ button{background:var(--btn);color:var(--fg);border:1px solid #8886;border-radiu
 button.active{background:#0284c7;color:#fff;border-color:#0284c7}
 #povNav{position:fixed;left:10px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:5;display:none;gap:6px;flex-wrap:wrap;max-width:calc(100vw - 20px)}
 #povNav button{font-size:12px;padding:6px 10px}
-#povHint{position:fixed;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:5;display:none;background:rgba(15,23,42,.82);color:#fff;padding:7px 11px;border-radius:8px;font-size:12px;pointer-events:none}
 canvas{display:block;touch-action:none}
 </style></head><body>
 <div id="ui">
@@ -21,7 +20,6 @@ canvas{display:block;touch-action:none}
   <button id="v">Aktifkan POV</button>
 </div>
 <div id="povNav"></div>
-<div id="povHint">Klik titik biru di tengah ruangan untuk masuk POV 360°</div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 const T = THREE, H = 3.5, H_TERAS = 3.0, TH = 0.15;
@@ -47,11 +45,9 @@ function makeFloorTexture() {
   const g = cv.getContext('2d');
   g.fillStyle = '#ddd7ce';
   g.fillRect(0, 0, 256, 256);
-  // Variasi lembut permukaan ubin
   g.fillStyle = '#e4dfd7';
   g.fillRect(2, 2, 124, 124);
   g.fillRect(130, 130, 124, 124);
-  // Garis nat keramik
   g.strokeStyle = '#9e978d';
   g.lineWidth = 3;
   g.strokeRect(0, 0, 256, 256);
@@ -99,14 +95,12 @@ function W(x1, z1, x2, z2, ops = [], h = H, y0 = 0) {
     hz ? box(s - TH / 2, b, c - TH / 2, e + TH / 2, t, c + TH / 2, m, 1)
        : box(c - TH / 2, b, s - TH / 2, c + TH / 2, t, e + TH / 2, m, 1);
 
-    // Tambah plint lantai (tinggi 10cm, menonjol 1cm) pada dinding yang menyentuh lantai (b === 0)
     if (b === 0 && t > 0.12) {
       const pT = TH / 2 + 0.012;
       hz ? box(s - TH / 2, 0.002, c - pT, e + TH / 2, 0.10, c + pT, plinthM, 0)
          : box(c - pT, 0.002, s - TH / 2, c + pT, 0.10, e + TH / 2, plinthM, 0);
     }
 
-    // Tambah lis plafon (tinggi 7cm di puncak dinding t === H) agar batas dinding-atap tegas di POV
     if (Math.abs(t - H) < 0.01) {
       const cT = TH / 2 + 0.01;
       hz ? box(s - TH / 2, H - 0.07, c - cT, e + TH / 2, H, c + cT, plinthM, 0)
@@ -139,13 +133,13 @@ function D(hx, hz, w, deg) {
 // =========================================================================
 // KOORDINAT PRESISI SESUAI HITUNGAN DENAH (dalam satuan meter):
 // 
-// Sumbu X (Kiri -> Kanan, total lebar belakang = 11.00m):
+// Sumbu X (Kiri -> Kanan, total lebar belakang = 8.00m + 3.00m = 11.00m):
 //   x = 0.00  : Dinding paling kiri (Dapur & Perkakas)
 //   x = 3.00  : Dinding kiri bangunan utama (offset kiri dapur = 3.00m)
 //   x = 6.25  : Dinding tengah pembatas (3.00 + 3.25m)
-//   x = 8.80  : Dinding kiri Kamar Mandi (lebar kamar mandi = 2.20m)
+//   x = 8.00  : Dinding kiri Kamar Mandi (lebar dapur belakang = 8.00m, lebar KM = 3.00m)
 //   x = 9.50  : Dinding kanan bangunan utama (3.00 + 6.50m)
-//   x = 11.00 : Dinding paling kanan (9.50 + 1.50m)
+//   x = 11.00 : Dinding paling kanan (8.00 + 3.00m = 9.50 + 1.50m)
 // 
 // Sumbu Z (Belakang -> Depan, total panjang = 12.20m):
 //   z = 0.00  : Dinding paling belakang (Dapur & Kamar Mandi)
@@ -173,19 +167,19 @@ function D(hx, hz, w, deg) {
 box(0, -0.3, 0, 11.0, 0, 3.0, slabM, 1);
 box(3.0, -0.3, 3.0, 9.5, 0, 12.2, slabM, 1);
 
-// 2. Dinding Dapur & Perkakas + Kamar Mandi (11m x 3m, tinggi 3.5m)
-W(0, 0, 11.0, 0);          // Dinding belakang 11m
-W(0, 0, 0, 3.0);           // Dinding kiri 3m
-W(11.0, 0, 11.0, 3.0);     // Dinding kanan 3m
+// 2. Dinding Dapur & Perkakas + Kamar Mandi (8m + 3m = 11m x 3m, tinggi 3.5m)
+W(0, 0, 11.0, 0);
+W(0, 0, 0, 3.0);
+W(11.0, 0, 11.0, 3.0);
 
 // Dinding bawah dapur
 W(0, 3.0, 1.85, 3.0);
 W(2.75, 3.0, 9.75, 3.0);
 W(10.65, 3.0, 11.0, 3.0);
 
-// Sekat Kamar Mandi di pojok kanan atas
-W(8.8, 1.5, 11.0, 1.5);
-W(8.8, 0.9, 8.8, 1.5);
+// Sekat Kamar Mandi di pojok kanan atas (lebar 3.0m: x=8.00 s/d x=11.00, dalam 1.50m)
+W(8.0, 1.5, 11.0, 1.5);
+W(8.0, 0.9, 8.0, 1.5);
 
 // 3. Dinding Bangunan Utama (lebar 6.5m: x=3.0 s/d x=9.5, tinggi 3.5m)
 W(3.0, 3.9, 3.0, 10.2, [[4.7, 5.25], [5.65, 6.2]]);
@@ -212,7 +206,7 @@ W(7.35, 9.7, 9.5, 9.7, [[7.8, 8.4], [8.65, 9.25]]);
 [
   [1.85, 3.0, 2.75, 3.0],
   [9.75, 3.0, 10.65, 3.0],
-  [8.8, 0.0, 8.8, 0.9],
+  [8.0, 0.0, 8.0, 0.9],
   [3.0, 3.0, 3.0, 3.9],
   [6.25, 4.9, 6.25, 5.8],
   [6.25, 6.0, 6.25, 7.2],
@@ -223,14 +217,13 @@ W(7.35, 9.7, 9.5, 9.7, [[7.8, 8.4], [8.65, 9.25]]);
 // 5. Tiang Teras depan (z = 12.20m, tinggi 3.0m) menumpu pas di bawah kanopi
 [3.0, 6.125, 9.25].forEach(x => {
   box(x, 0, 11.95, x + 0.25, H_TERAS, 12.2, wallM, 1);
-  // Lis kaki tiang teras agar batas tiang dan lantai teras jelas
   box(x - 0.01, 0.002, 11.94, x + 0.26, 0.10, 12.21, plinthM, 0);
 });
 
 // 6. Daun Pintu (coklat kayu) sesuai arah bukaan pada denah
 D(2.75, 3.0, 0.9, -150);
 D(10.65, 3.0, 0.9, -150);
-D(8.8, 0.9, 0.85, -32);
+D(8.0, 0.9, 0.85, -32);
 D(3.0, 3.9, 0.9, 28);
 D(6.25, 4.9, 0.9, 28);
 D(5.05, 7.2, 0.9, 28);
@@ -240,7 +233,6 @@ D(7.35, 9.7, 0.9, -152);
 const roofs = new T.Group();
 scene.add(roofs);
 
-// Plafon datar pada elevasi H=3.50m (ikut tersembunyi jika tombol "Hilangkan atap" ditekan)
 box(0.0, H - 0.02, 0.0, 11.0, H, 3.0, ceilingM, 0, roofs);
 box(3.0, H - 0.02, 3.0, 6.25, H, 10.2, ceilingM, 0, roofs);
 box(6.25, H - 0.02, 3.0, 9.5, H, 9.7, ceilingM, 0, roofs);
@@ -393,7 +385,10 @@ function dimV(x, z, y1, y2, txt, offsetX = 0.35, offsetZ = 0) {
   dimLabel(txt, px + 0.55, (y1 + y2) / 2, pz, 0.75);
 }
 
-dimH(0.0, -0.55, 11.0, -0.55, '11m', [0, 1], [0, -0.35]);
+// Dimensi luar belakang dipecah 8m (Dapur) + 3m (Kamar Mandi)
+dimH(0.0, -0.55, 8.0, -0.55, '8m', [0, 1], [0, -0.35]);
+dimH(8.0, -0.55, 11.0, -0.55, '3m', [0, 1], [0, -0.35]);
+
 dimH(-0.55, 0.0, -0.55, 3.0, '3m', [1, 0], [-0.45, 0]);
 dimH(11.55, 0.0, 11.55, 3.0, '3m', [1, 0], [0.45, 0]);
 dimH(0.0, 3.45, 3.0, 3.45, '3m', [0, 1], [0, 0.35]);
@@ -407,7 +402,7 @@ dimH(10.05, 9.7, 10.05, 12.2, '2.5m', [1, 0], [0.5, 0]);
 dimH(3.0, 12.75, 9.5, 12.75, '6.5m', [0, 1], [0, 0.38]);
 
 dimH(5.9, 3.0, 5.9, 7.2, '4.2m', [1, 0], [-0.48, 0]);
-dimH(6.6, 6.0, 6.6, 7.2, '1.2m', [1, 0], [0.48, 0]);
+dimH(6.6, 6.0, 6.6, 7.2, '1.25m', [1, 0], [0.52, 0]);
 dimH(9.15, 3.0, 9.15, 6.0, '3m', [1, 0], [-0.38, 0]);
 dimH(9.15, 6.0, 9.15, 9.7, '3.7m', [1, 0], [-0.42, 0]);
 dimH(3.35, 7.2, 3.35, 10.2, '3m', [1, 0], [0.38, 0]);
@@ -424,8 +419,8 @@ povGroup.visible = false;
 scene.add(povGroup);
 
 const ROOMS = [
-  { name: 'Dapur & Perkakas', x: 4.40,  z: 1.50,  yaw: 0 },
-  { name: 'Kamar Mandi',      x: 9.90,  z: 0.75,  yaw: -Math.PI / 2 },
+  { name: 'Dapur & Perkakas', x: 4.00,  z: 1.50,  yaw: 0 },
+  { name: 'Kamar Mandi',      x: 9.50,  z: 0.75,  yaw: -Math.PI / 2 },
   { name: 'Ruang Santai',     x: 4.625, z: 5.10,  yaw: Math.PI / 2 },
   { name: 'Kamar Tidur 1',    x: 7.875, z: 4.50,  yaw: -Math.PI / 2 },
   { name: 'Kamar Tidur 2',    x: 4.625, z: 8.70,  yaw: 0 },
@@ -435,7 +430,6 @@ const ROOMS = [
 
 const povHotspots = [];
 const povNav = document.getElementById('povNav');
-const povHint = document.getElementById('povHint');
 
 function makeHotspotTexture(label) {
   const cv = document.createElement('canvas');
@@ -509,7 +503,6 @@ function enterRoomPOV(idx) {
     obj.visible = obj.userData.roomIndex !== idx;
   });
   [...povNav.children].forEach((b, i) => b.classList.toggle('active', i === idx));
-  povHint.textContent = `POV 360°: ${rm.name} — Geser untuk melihat sekeliling`;
   upd();
 }
 
@@ -519,13 +512,11 @@ function togglePOV(forceState) {
   v.classList.toggle('active', povMode);
   povGroup.visible = povMode;
   povNav.style.display = povMode ? 'flex' : 'none';
-  povHint.style.display = povMode ? 'block' : 'none';
 
   if (povMode) {
     activeRoom = -1;
     povHotspots.forEach(obj => obj.visible = true);
     [...povNav.children].forEach(b => b.classList.remove('active'));
-    povHint.textContent = 'Klik titik 360° di tengah ruangan untuk masuk ke dalam';
     if (!roofs.visible) {
       roofs.visible = true;
       r.textContent = 'Hilangkan atap';
