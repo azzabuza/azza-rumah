@@ -22,7 +22,7 @@ canvas{display:block;touch-action:none}
 <div id="povNav"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-const T = THREE, H = 3.5, H_LOW = 3.0, H_TERAS = 3.0, TH = 0.15, hT = TH / 2;
+const T = THREE, H = 3.5, H_LOW = 3.2, H_TERAS = 3.0, TH = 0.15, hT = TH / 2;
 const scene = new T.Scene(), dark = matchMedia('(prefers-color-scheme:dark)').matches;
 scene.background = new T.Color(dark ? 0x1c1c1c : 0xf4f4f4);
 
@@ -99,7 +99,7 @@ function cornerLine(x, z, y0 = 0, y1 = H) {
   scene.add(new T.Line(geo, cornerM));
 }
 
-// Fungsi dinding & balok beton bertulang berbasis koordinat meter presisi
+// Fungsi dinding & balok beton bertulang berbasis koordinat meter presisi + otomatis lis atas & plint
 function W(x1, z1, x2, z2, ops = [], h = H, y0 = 0) {
   const hz = Math.abs(z1 - z2) < 1e-6;
   const a0 = hz ? Math.min(x1, x2) : Math.min(z1, z2);
@@ -116,10 +116,10 @@ function W(x1, z1, x2, z2, ops = [], h = H, y0 = 0) {
          : box(c - pT, 0.002, s - hT, c + pT, 0.10, e + hT, plinthM, 0);
     }
 
-    if (Math.abs(t - H) < 0.01) {
+    if (Math.abs(t - H) < 0.01 || Math.abs(t - H_LOW) < 0.01) {
       const cT = hT + 0.01;
-      hz ? box(s - hT, H - 0.07, c - cT, e + hT, H, c + cT, plinthM, 0)
-         : box(c - cT, H - 0.07, s - hT, c + cT, H, e + hT, plinthM, 0);
+      hz ? box(s - hT, t - 0.07, c - cT, e + hT, t, c + cT, plinthM, 0)
+         : box(c - cT, t - 0.07, s - hT, c + cT, t, e + hT, plinthM, 0);
     }
   };
   ops = ops.map(o => [Math.min(o[0], o[1]), Math.max(o[0], o[1])]).sort((a, b) => a[0] - b[0]);
@@ -150,7 +150,7 @@ function D(hx, hz, w, deg) {
 // 
 // Sumbu X (Kiri -> Kanan, total lebar belakang = 8.00m + 3.00m = 11.00m):
 //   x = 0.00  : As dinding paling kiri (sisi luar di x = -0.075m)
-//   x = 3.00  : As dinding kiri bangunan utama + batas penurunan elevasi dapur (offset 3.00m)
+//   x = 3.00  : As dinding kiri bangunan utama + batas dapur kiri 3.20m (offset 3.00m)
 //   x = 6.25  : As dinding tengah pembatas (3.00 + 3.25m)
 //   x = 8.00  : As dinding kiri Kamar Mandi (lebar dapur = 8.00m, lebar KM = 3.00m)
 //   x = 9.50  : As dinding kanan bangunan utama (sisi luar di x = 9.575m)
@@ -172,49 +172,17 @@ box(-hT, -0.3, -hT, 11.0 + hT, 0, 3.0 + hT, slabBackM, 0);
 box(3.0 - hT, -0.3, 3.0, 9.5 + hT, 0, 12.2, slabMainM, 0);
 
 // 2. Dinding Dapur & Perkakas + Kamar Mandi
-// Bagian belakang dapur kiri (x = 0.00 s/d x = 3.00) turun 50cm menjadi 3.00m
+// Bagian dapur sebelah kiri (x = 0.00 s/d x = 3.00) tinggi 3.20m RATA (belakang, samping kiri, dan depan)
 W(0, 0, 3.0, 0, [], H_LOW, 0);
-box(-hT, H_LOW - 0.07, -hT - 0.01, 3.0 + hT, H_LOW, hT + 0.01, plinthM, 0);
+W(0, 0, 0, 3.0, [], H_LOW, 0);
+W(0, 3.0, 1.85, 3.0, [], H_LOW, 0);
+W(2.75, 3.0, 3.0, 3.0, [], H_LOW, 0);
 
-// Bagian belakang dapur tengah hingga KM (x = 3.00 s/d x = 11.00) tetap 3.50m
+// Bagian dapur tengah hingga KM (x = 3.00 s/d x = 11.00) tinggi 3.50m
 W(3.0, 0, 11.0, 0, [], H, 0);
 W(11.0, 0, 11.0, 3.0, [], H, 0);
-
-// Dinding samping kiri dapur (x = 0.00): miring lurus dari y = 3.00m di belakang (z = 0) ke y = 3.50m di depan (z = 3.0)
-{
-  const leftShape = new T.Shape();
-  leftShape.moveTo(hT, 0);
-  leftShape.lineTo(-3.0 - hT, 0);
-  leftShape.lineTo(-3.0 - hT, H);
-  leftShape.lineTo(hT, H_LOW);
-  leftShape.closePath();
-
-  const leftWall = new T.Mesh(new T.ExtrudeGeometry(leftShape, { depth: TH, bevelEnabled: false }), wallM);
-  leftWall.rotation.y = Math.PI / 2;
-  leftWall.position.set(-hT, 0, 0);
-  scene.add(leftWall);
-
-  // Plint kaki dinding samping kiri
-  box(-hT - 0.012, 0.002, -hT, hT + 0.012, 0.10, 3.0 + hT, plinthM, 0);
-
-  // Lis atas mengikuti kemiringan dari y=3.0m (belakang) ke y=3.5m (depan)
-  const capShape = new T.Shape();
-  capShape.moveTo(hT, H_LOW - 0.07);
-  capShape.lineTo(-3.0 - hT, H - 0.07);
-  capShape.lineTo(-3.0 - hT, H);
-  capShape.lineTo(hT, H_LOW);
-  capShape.closePath();
-
-  const leftCap = new T.Mesh(new T.ExtrudeGeometry(capShape, { depth: TH + 0.02, bevelEnabled: false }), plinthM);
-  leftCap.rotation.y = Math.PI / 2;
-  leftCap.position.set(-hT - 0.01, 0, 0);
-  scene.add(leftCap);
-}
-
-// Dinding depan dapur (z = 3.00) tetap 3.50m penuh dari kiri ke kanan
-W(0, 3.0, 1.85, 3.0);
-W(2.75, 3.0, 9.75, 3.0);
-W(10.65, 3.0, 11.0, 3.0);
+W(3.0, 3.0, 9.75, 3.0, [], H, 0);
+W(10.65, 3.0, 11.0, 3.0, [], H, 0);
 
 // Sekat Kamar Mandi di pojok kanan atas (lebar 3.0m: x=8.00 s/d x=11.00, dalam 1.50m)
 W(8.0, 1.5, 11.0, 1.5);
@@ -241,9 +209,9 @@ W(3.0, 10.2, 6.25, 10.2, [[3.75, 4.35], [4.95, 5.55]]);
 W(6.25, 9.7, 6.45, 9.7);
 W(7.35, 9.7, 9.5, 9.7, [[7.8, 8.4], [8.65, 9.25]]);
 
-// 4. Balok gawang di atas bukaan pintu & penghubung ruangan (tinggi 2.1m s/d 3.5m)
+// 4. Balok gawang di atas bukaan pintu & penghubung ruangan
+W(1.85, 3.0, 2.75, 3.0, [], H_LOW, 2.1); // Balok gawang pintu dapur kiri ikut tinggi 3.20m
 [
-  [1.85, 3.0, 2.75, 3.0],
   [9.75, 3.0, 10.65, 3.0],
   [8.0, 0.0, 8.0, 0.85],
   [3.0, 3.0, 3.0, 3.9],
@@ -262,9 +230,9 @@ W(7.35, 9.7, 9.5, 9.7, [[7.8, 8.4], [8.65, 9.25]]);
 
 // 4b. Garis siku sudut dalam & luar tiap ruangan
 [
-  // Dapur & Perkakas (sudut kiri belakang tingginya 3.0m)
-  [0 + hT, 0 + hT, H_LOW],
-  [8.0 - hT, 0 + hT, H], [0 + hT, 3.0 - hT, H], [11.0 - hT, 3.0 - hT, H], [11.0 - hT, 1.5 + hT, H],
+  // Dapur & Perkakas (bagian kiri tinggi 3.20m rata depan & belakang)
+  [0 + hT, 0 + hT, H_LOW], [0 + hT, 3.0 - hT, H_LOW],
+  [8.0 - hT, 0 + hT, H], [11.0 - hT, 3.0 - hT, H], [11.0 - hT, 1.5 + hT, H],
   // Kamar Mandi
   [8.0 + hT, 0 + hT, H], [11.0 - hT, 0 + hT, H], [8.0 + hT, 1.5 - hT, H], [11.0 - hT, 1.5 - hT, H],
   // Ruang Santai
@@ -276,7 +244,7 @@ W(7.35, 9.7, 9.5, 9.7, [[7.8, 8.4], [8.65, 9.25]]);
   // Ruang Tamu
   [6.25 + hT, 6.0 + hT, H], [9.5 - hT, 6.0 + hT, H], [6.25 + hT, 9.7 - hT, H], [9.5 - hT, 9.7 - hT, H],
   // Sudut luar bangunan
-  [-hT, -hT, H_LOW], [11.0 + hT, -hT, H], [-hT, 3.0 + hT, H], [11.0 + hT, 3.0 + hT, H],
+  [-hT, -hT, H_LOW], [-hT, 3.0 + hT, H_LOW], [11.0 + hT, -hT, H], [11.0 + hT, 3.0 + hT, H],
   [3.0 - hT, 10.2 + hT, H], [6.25 + hT, 10.2 + hT, H], [9.5 + hT, 9.7 + hT, H]
 ].forEach(([cx, cz, topY]) => cornerLine(cx, cz, 0, topY));
 
@@ -303,21 +271,9 @@ D(6.45, 9.7, 0.9, -32);
 const roofs = new T.Group();
 scene.add(roofs);
 
-// Plafon dapur bagian kanan (x = 3.00 .. 11.00) datar di y = 3.50m
+// Plafon dapur bagian kiri (x = 0.00 .. 3.00) datar di y = 3.20m, kanan (x = 3.00 .. 11.00) datar di y = 3.50m
+box(0.0, H_LOW - 0.02, 0.0, 3.0, H_LOW, 3.0, ceilingM, 0, roofs);
 box(3.0, H - 0.02, 0.0, 11.0, H, 3.0, ceilingM, 0, roofs);
-// Plafon dapur bagian kiri (x = 0.00 .. 3.00) miring lurus dari y = 3.00m (belakang) ke y = 3.50m (depan)
-{
-  const ceilSlope = new T.Shape();
-  ceilSlope.moveTo(0, H_LOW - 0.02);
-  ceilSlope.lineTo(-3.0, H - 0.02);
-  ceilSlope.lineTo(-3.0, H);
-  ceilSlope.lineTo(0, H_LOW);
-  ceilSlope.closePath();
-  const cmLeft = new T.Mesh(new T.ExtrudeGeometry(ceilSlope, { depth: 3.0, bevelEnabled: false }), ceilingM);
-  cmLeft.rotation.y = Math.PI / 2;
-  cmLeft.position.set(0.0, 0, 0);
-  roofs.add(cmLeft);
-}
 
 box(3.0, H - 0.02, 3.0, 6.25, H, 10.2, ceilingM, 0, roofs);
 box(6.25, H - 0.02, 3.0, 9.5, H, 9.7, ceilingM, 0, roofs);
@@ -346,39 +302,25 @@ function gable(x0, z0, x1, z1, alongX, rh, o) {
 
 gable(3.0, 0, 9.5, 10.2, true, 1.9, 0.4);
 
-// Atap sayap kiri dapur (x = -0.4 .. 2.6): satu bidang miring LURUS dari puncak depan ke dinding belakang 3.0m
-{
-  const sL = new T.Shape();
-  sL.moveTo(0.4, H_LOW);
-  sL.lineTo(-3.4, H);
-  sL.lineTo(-3.4, H + 1.32);
-  sL.closePath();
-  const mL = new T.Mesh(new T.ExtrudeGeometry(sL, { depth: 3.0, bevelEnabled: false }), roofM);
-  mL.rotation.y = Math.PI / 2;
-  mL.position.set(-0.4, 0, 0);
-  roofs.add(mL);
-  const lL = new T.LineSegments(new T.EdgesGeometry(mL.geometry), edgeM);
-  lL.rotation.copy(mL.rotation);
-  lL.position.copy(mL.position);
-  roofs.add(lL);
+function wingFB(x0, x1, baseH) {
+  const s = new T.Shape();
+  s.moveTo(0.4, 0);
+  s.lineTo(-3.4, 0);
+  s.lineTo(-3.4, 1.32);
+  s.lineTo(-1.5, 0.66);
+  s.closePath();
+  const m = new T.Mesh(new T.ExtrudeGeometry(s, { depth: x1 - x0, bevelEnabled: false }), roofM);
+  m.rotation.y = Math.PI / 2;
+  m.position.set(x0, baseH, 0);
+  roofs.add(m);
+  const l = new T.LineSegments(new T.EdgesGeometry(m.geometry), edgeM);
+  l.rotation.copy(m.rotation);
+  l.position.copy(m.position);
+  roofs.add(l);
 }
-
-// Atap sayap kanan dapur (x = 9.9 .. 11.4): lurus datar di elevasi 3.50m
-{
-  const sR = new T.Shape();
-  sR.moveTo(0.4, 0);
-  sR.lineTo(-3.4, 0);
-  sR.lineTo(-3.4, 1.32);
-  sR.closePath();
-  const mR = new T.Mesh(new T.ExtrudeGeometry(sR, { depth: 1.5, bevelEnabled: false }), roofM);
-  mR.rotation.y = Math.PI / 2;
-  mR.position.set(9.9, H, 0);
-  roofs.add(mR);
-  const lR = new T.LineSegments(new T.EdgesGeometry(mR.geometry), edgeM);
-  lR.rotation.copy(mR.rotation);
-  lR.position.copy(mR.position);
-  roofs.add(lR);
-}
+// Sayap kiri dapur duduk rata di elevasi 3.20m, sayap kanan di elevasi 3.50m
+wingFB(-0.4, 2.6, H_LOW);
+wingFB(9.9, 11.4, H);
 
 const cs = new T.Shape();
 cs.moveTo(-9.7, 3.38);
@@ -509,7 +451,7 @@ dimH(3.0, 10.55, 6.25, 10.55, '3.25m', [0, 1], [0, 0.32]);
 dimH(6.25, 10.05, 9.5, 10.05, '3.25m', [0, 1], [0, 0.32]);
 dimH(6.55, 9.7, 6.55, 10.2, '50cm', [1, 0], [0.48, 0]);
 
-dimV(0.0, 0.0, 0, H_LOW, 'Tinggi 3m', -0.95, 0);
+dimV(0.0, 0.0, 0, H_LOW, 'Tinggi 3.2m', -0.95, 0);
 dimV(11.0, 3.0, 0, H, 'Tinggi 3.5m', 0.45, 0);
 dimV(9.5, 12.2, 0, H_TERAS, 'Tiang 3m', 0.45, 0);
 
