@@ -149,17 +149,17 @@ function D(hx, hz, w, deg) {
 // KOORDINAT PRESISI SESUAI HITUNGAN DENAH (dalam satuan meter):
 // 
 // Sumbu X (Kiri -> Kanan, total lebar belakang = 8.00m + 3.00m = 11.00m):
-//   x = 0.00  : As dinding paling kiri (sisi luar di x = -0.075m)
-//   x = 3.00  : As dinding kiri bangunan utama + batas dapur kiri 3.20m (offset 3.00m)
+//   x = 0.00  : As dinding paling kiri (sayap kiri tinggi 3.20m)
+//   x = 3.00  : As dinding kiri bangunan utama + batas sayap kiri 3.20m
 //   x = 6.25  : As dinding tengah pembatas (3.00 + 3.25m)
 //   x = 8.00  : As dinding kiri Kamar Mandi (lebar dapur = 8.00m, lebar KM = 3.00m)
-//   x = 9.50  : As dinding kanan bangunan utama (sisi luar di x = 9.575m)
-//   x = 11.00 : As dinding paling kanan (sisi luar di x = 11.075m)
+//   x = 9.50  : As dinding kanan bangunan utama + batas sayap kanan 3.20m
+//   x = 11.00 : As dinding paling kanan (sayap kanan & dinding kanan KM tinggi 3.20m)
 // 
 // Sumbu Z (Belakang -> Depan, total panjang = 12.20m):
-//   z = 0.00  : As dinding paling belakang (sisi luar di z = -0.075m)
+//   z = 0.00  : As dinding paling belakang
 //   z = 1.50  : As dinding depan Kamar Mandi (dalam kamar mandi = 1.50m)
-//   z = 3.00  : As batas Dapur & bangunan utama (sisi luar sayap di z = 3.075m)
+//   z = 3.00  : As batas Dapur & bangunan utama
 //   z = 6.00  : As dinding depan Kamar Tidur kanan (3.00 + 3.00m)
 //   z = 7.20  : As dinding belakang Kamar Tidur kiri (3.00 + 4.20m Ruang Santai)
 //   z = 9.70  : As dinding depan Ruang Tamu (6.00 + 3.70m = 3.00 + 6.70m)
@@ -172,21 +172,26 @@ box(-hT, -0.3, -hT, 11.0 + hT, 0, 3.0 + hT, slabBackM, 0);
 box(3.0 - hT, -0.3, 3.0, 9.5 + hT, 0, 12.2, slabMainM, 0);
 
 // 2. Dinding Dapur & Perkakas + Kamar Mandi
-// Bagian dapur sebelah kiri (x = 0.00 s/d x = 3.00) tinggi 3.20m RATA (belakang, samping kiri, dan depan)
+// Sayap kiri (x = 0.00 s/d x = 3.00) tinggi 3.20m RATA
 W(0, 0, 3.0, 0, [], H_LOW, 0);
 W(0, 0, 0, 3.0, [], H_LOW, 0);
 W(0, 3.0, 1.85, 3.0, [], H_LOW, 0);
 W(2.75, 3.0, 3.0, 3.0, [], H_LOW, 0);
 
-// Bagian dapur tengah hingga KM (x = 3.00 s/d x = 11.00) tinggi 3.50m
-W(3.0, 0, 11.0, 0, [], H, 0);
-W(11.0, 0, 11.0, 3.0, [], H, 0);
-W(3.0, 3.0, 9.75, 3.0, [], H, 0);
-W(10.65, 3.0, 11.0, 3.0, [], H, 0);
+// Bagian tengah di bawah atap pelana utama (x = 3.00 s/d x = 9.50) tinggi 3.50m
+W(3.0, 0, 9.5, 0, [], H, 0);
+W(3.0, 3.0, 9.5, 3.0, [], H, 0);
+
+// Sayap kanan (x = 9.50 s/d x = 11.00 — mencakup sisi kanan Kamar Mandi & dapur kanan) turun 30cm menjadi 3.20m RATA
+W(9.5, 0, 11.0, 0, [], H_LOW, 0);
+W(11.0, 0, 11.0, 3.0, [], H_LOW, 0);
+W(9.5, 3.0, 9.75, 3.0, [], H_LOW, 0);
+W(10.65, 3.0, 11.0, 3.0, [], H_LOW, 0);
 
 // Sekat Kamar Mandi di pojok kanan atas (lebar 3.0m: x=8.00 s/d x=11.00, dalam 1.50m)
-W(8.0, 1.5, 11.0, 1.5);
-W(8.0, 0.85, 8.0, 1.5);
+W(8.0, 1.5, 9.5, 1.5, [], H, 0);
+W(9.5, 1.5, 11.0, 1.5, [], H_LOW, 0);
+W(8.0, 0.85, 8.0, 1.5, [], H, 0);
 
 // 3. Dinding Bangunan Utama (lebar 6.5m: x=3.0 s/d x=9.5, tinggi 3.5m)
 W(3.0, 3.9, 3.0, 10.2, [[4.7, 5.25], [5.65, 6.2]]);
@@ -210,9 +215,9 @@ W(6.25, 9.7, 6.45, 9.7);
 W(7.35, 9.7, 9.5, 9.7, [[7.8, 8.4], [8.65, 9.25]]);
 
 // 4. Balok gawang di atas bukaan pintu & penghubung ruangan
-W(1.85, 3.0, 2.75, 3.0, [], H_LOW, 2.1); // Balok gawang pintu dapur kiri ikut tinggi 3.20m
+W(1.85, 3.0, 2.75, 3.0, [], H_LOW, 2.1);   // Balok gawang pintu dapur kiri ikut tinggi 3.20m
+W(9.75, 3.0, 10.65, 3.0, [], H_LOW, 2.1);  // Balok gawang pintu dapur kanan ikut tinggi 3.20m
 [
-  [9.75, 3.0, 10.65, 3.0],
   [8.0, 0.0, 8.0, 0.85],
   [3.0, 3.0, 3.0, 3.9],
   [6.25, 4.9, 6.25, 5.8],
@@ -230,11 +235,11 @@ W(1.85, 3.0, 2.75, 3.0, [], H_LOW, 2.1); // Balok gawang pintu dapur kiri ikut t
 
 // 4b. Garis siku sudut dalam & luar tiap ruangan
 [
-  // Dapur & Perkakas (bagian kiri tinggi 3.20m rata depan & belakang)
+  // Dapur & Perkakas (sayap kiri tinggi 3.20m, sayap kanan tinggi 3.20m)
   [0 + hT, 0 + hT, H_LOW], [0 + hT, 3.0 - hT, H_LOW],
-  [8.0 - hT, 0 + hT, H], [11.0 - hT, 3.0 - hT, H], [11.0 - hT, 1.5 + hT, H],
-  // Kamar Mandi
-  [8.0 + hT, 0 + hT, H], [11.0 - hT, 0 + hT, H], [8.0 + hT, 1.5 - hT, H], [11.0 - hT, 1.5 - hT, H],
+  [8.0 - hT, 0 + hT, H], [11.0 - hT, 3.0 - hT, H_LOW], [11.0 - hT, 1.5 + hT, H_LOW],
+  // Kamar Mandi (sisi kiri di bawah pelana utama 3.50m, sisi kanan di sayap kanan 3.20m)
+  [8.0 + hT, 0 + hT, H], [11.0 - hT, 0 + hT, H_LOW], [8.0 + hT, 1.5 - hT, H], [11.0 - hT, 1.5 - hT, H_LOW],
   // Ruang Santai
   [3.0 + hT, 3.0 + hT, H], [6.25 - hT, 3.0 + hT, H], [3.0 + hT, 7.2 - hT, H], [6.25 - hT, 7.2 - hT, H],
   // Kamar Tidur Kanan (KT 1)
@@ -244,7 +249,7 @@ W(1.85, 3.0, 2.75, 3.0, [], H_LOW, 2.1); // Balok gawang pintu dapur kiri ikut t
   // Ruang Tamu
   [6.25 + hT, 6.0 + hT, H], [9.5 - hT, 6.0 + hT, H], [6.25 + hT, 9.7 - hT, H], [9.5 - hT, 9.7 - hT, H],
   // Sudut luar bangunan
-  [-hT, -hT, H_LOW], [-hT, 3.0 + hT, H_LOW], [11.0 + hT, -hT, H], [11.0 + hT, 3.0 + hT, H],
+  [-hT, -hT, H_LOW], [-hT, 3.0 + hT, H_LOW], [11.0 + hT, -hT, H_LOW], [11.0 + hT, 3.0 + hT, H_LOW],
   [3.0 - hT, 10.2 + hT, H], [6.25 + hT, 10.2 + hT, H], [9.5 + hT, 9.7 + hT, H]
 ].forEach(([cx, cz, topY]) => cornerLine(cx, cz, 0, topY));
 
@@ -271,9 +276,10 @@ D(6.45, 9.7, 0.9, -32);
 const roofs = new T.Group();
 scene.add(roofs);
 
-// Plafon dapur bagian kiri (x = 0.00 .. 3.00) datar di y = 3.20m, kanan (x = 3.00 .. 11.00) datar di y = 3.50m
+// Plafon dapur sayap kiri (3.20m), tengah (3.50m), dan sayap kanan / KM kanan (3.20m)
 box(0.0, H_LOW - 0.02, 0.0, 3.0, H_LOW, 3.0, ceilingM, 0, roofs);
-box(3.0, H - 0.02, 0.0, 11.0, H, 3.0, ceilingM, 0, roofs);
+box(3.0, H - 0.02, 0.0, 9.5, H, 3.0, ceilingM, 0, roofs);
+box(9.5, H_LOW - 0.02, 0.0, 11.0, H_LOW, 3.0, ceilingM, 0, roofs);
 
 box(3.0, H - 0.02, 3.0, 6.25, H, 10.2, ceilingM, 0, roofs);
 box(6.25, H - 0.02, 3.0, 9.5, H, 9.7, ceilingM, 0, roofs);
@@ -318,9 +324,9 @@ function wingFB(x0, x1, baseH) {
   l.position.copy(m.position);
   roofs.add(l);
 }
-// Sayap kiri dapur duduk rata di elevasi 3.20m, sayap kanan di elevasi 3.50m
+// Sayap kiri dan sayap kanan (Kamar Mandi) keduanya simetris di elevasi 3.20m
 wingFB(-0.4, 2.6, H_LOW);
-wingFB(9.9, 11.4, H);
+wingFB(9.9, 11.4, H_LOW);
 
 const cs = new T.Shape();
 cs.moveTo(-9.7, 3.38);
@@ -452,7 +458,8 @@ dimH(6.25, 10.05, 9.5, 10.05, '3.25m', [0, 1], [0, 0.32]);
 dimH(6.55, 9.7, 6.55, 10.2, '50cm', [1, 0], [0.48, 0]);
 
 dimV(0.0, 0.0, 0, H_LOW, 'Tinggi 3.2m', -0.95, 0);
-dimV(11.0, 3.0, 0, H, 'Tinggi 3.5m', 0.45, 0);
+dimV(11.0, 3.0, 0, H_LOW, 'Tinggi 3.2m', 0.45, 0);
+dimV(9.5, 6.0, 0, H, 'Tinggi 3.5m', 0.45, 0);
 dimV(9.5, 12.2, 0, H_TERAS, 'Tiang 3m', 0.45, 0);
 
 // 9. FITUR POV 360° TEPAT DI TENGAH TIAP RUANGAN
