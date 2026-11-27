@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="utf-8">
-    <title>Denah Rumah 3D - Atap Asbes</title>
+    <title>Denah Rumah 3D</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <style>
         :root {
@@ -81,6 +81,7 @@
         <button id="r">Hilangkan atap</button>
         <button id="m">Sembunyikan garis</button>
         <button id="v">Aktifkan POV</button>
+        <button id="pan">Aktifkan panorama</button>
     </div>
     <div id="povNav"></div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -966,7 +967,9 @@
             povNav.appendChild(btn);
         });
 
+        // Kontrol Kamera Orbit, Mode POV 360°, & Panorama Otomatis
         let povMode = false;
+        let panoramaMode = false;
         let activeRoom = -1;
         let povYaw = 0, povPitch = 0, povFov = 75;
         let th = -0.5, ph = 0.9, d = 24;
@@ -995,6 +998,7 @@
             povNav.style.display = povMode ? 'flex' : 'none';
 
             if (povMode) {
+                if (panoramaMode) togglePanorama(false);
                 activeRoom = -1;
                 povHotspots.forEach(obj => obj.visible = true);
                 [...povNav.children].forEach(b => b.classList.remove('active'));
@@ -1007,6 +1011,22 @@
                 cam.fov = 50;
                 cam.updateProjectionMatrix();
                 th = -0.5; ph = 0.9; d = 24;
+                upd();
+            }
+        }
+
+        function togglePanorama(forceState) {
+            panoramaMode = typeof forceState === 'boolean' ? forceState : !panoramaMode;
+            pan.textContent = panoramaMode ? 'Matikan panorama' : 'Aktifkan panorama';
+            pan.classList.toggle('active', panoramaMode);
+
+            if (panoramaMode) {
+                if (povMode) togglePOV(false);
+                cam.fov = 50;
+                cam.updateProjectionMatrix();
+                // Ketinggian & jarak kamera disamakan dengan mode Perspektif
+                ph = 0.9;
+                d = 24;
                 upd();
             }
         }
@@ -1107,27 +1127,40 @@
         }, { passive: false });
 
         p.onclick = () => {
+            if (panoramaMode) togglePanorama(false);
             if (povMode) togglePOV(false);
             th = -0.5; ph = 0.9; d = 24; upd();
         };
         r.onclick = () => { roofs.visible = !roofs.visible; r.textContent = roofs.visible ? 'Hilangkan atap' : 'Aktifkan atap'; };
         t.onclick = () => {
+            if (panoramaMode) togglePanorama(false);
             if (povMode && activeRoom >= 0) activeRoom = -1;
             cam.fov = 50; cam.updateProjectionMatrix();
             th = 0; ph = 1.55; d = 24; upd();
         };
         m.onclick = () => { dims.visible = !dims.visible; m.textContent = dims.visible ? 'Sembunyikan garis' : 'Tampilkan garis'; };
         v.onclick = () => togglePOV();
+        pan.onclick = () => togglePanorama();
 
         addEventListener('resize', () => {
             cam.aspect = innerWidth / innerHeight;
             cam.updateProjectionMatrix();
             ren.setSize(innerWidth, innerHeight);
         });
-        (function loop() {
+
+        let lastTime = performance.now();
+        (function loop(now) {
             requestAnimationFrame(loop);
+            const dt = Math.min((now - lastTime) / 1000, 0.1);
+            lastTime = now;
+
+            if (panoramaMode && pts.size === 0) {
+                th += dt * 0.30;
+                upd();
+            }
+
             ren.render(scene, cam);
-        })();
+        })(lastTime);
     </script>
 </body>
 
