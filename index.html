@@ -22,7 +22,7 @@ canvas{display:block;touch-action:none}
 <div id="povNav"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-const T = THREE, H = 3.5, H_LOW = 3.2, H_TERAS = 3.0, TH = 0.15, hT = TH / 2;
+const T = THREE, H = 3.5, H_LOW = 3.2, H_TERAS = 3.0, Y_DROP = -0.10, TH = 0.15, hT = TH / 2;
 const scene = new T.Scene(), dark = matchMedia('(prefers-color-scheme:dark)').matches;
 scene.background = new T.Color(dark ? 0x1c1c1c : 0xf4f4f4);
 
@@ -71,7 +71,9 @@ function makeFloorTexture(widthM, depthM) {
 const wallM        = new T.MeshLambertMaterial({ color: 0xf5f5f3 });
 const plinthM      = new T.MeshLambertMaterial({ color: 0x57534e });
 const slabBackM    = new T.MeshLambertMaterial({ map: makeFloorTexture(11.0 + TH, 3.0 + TH) });
-const slabMainM    = new T.MeshLambertMaterial({ map: makeFloorTexture(6.5 + TH, 9.2) });
+const slabMainM    = new T.MeshLambertMaterial({ map: makeFloorTexture(6.5 + TH, 6.7) });
+const slabTerasKM  = new T.MeshLambertMaterial({ map: makeFloorTexture(3.25 + hT, 2.0) });
+const slabTerasRTM = new T.MeshLambertMaterial({ map: makeFloorTexture(3.25 + hT, 2.5) });
 const ceilingM     = new T.MeshLambertMaterial({ color: 0xffffff, side: T.DoubleSide });
 const doorM        = new T.MeshLambertMaterial({ color: 0x7a441e });
 const winM         = new T.MeshLambertMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.72 });
@@ -100,7 +102,7 @@ function cornerLine(x, z, y0 = 0, y1 = H) {
 }
 
 // Fungsi dinding & balok beton bertulang berbasis koordinat meter presisi + otomatis lis atas & plint
-function W(x1, z1, x2, z2, ops = [], h = H, y0 = 0) {
+function W(x1, z1, x2, z2, ops = [], h = H, y0 = 0, isBeam = false) {
   const hz = Math.abs(z1 - z2) < 1e-6;
   const a0 = hz ? Math.min(x1, x2) : Math.min(z1, z2);
   const a1 = hz ? Math.max(x1, x2) : Math.max(z1, z2);
@@ -110,10 +112,10 @@ function W(x1, z1, x2, z2, ops = [], h = H, y0 = 0) {
     hz ? box(s - hT, b, c - hT, e + hT, t, c + hT, m, 0)
        : box(c - hT, b, s - hT, c + hT, t, e + hT, m, 0);
 
-    if (b === 0 && t > 0.12) {
+    if (!isBeam && b <= 0.01 && t > 0.12) {
       const pT = hT + 0.012;
-      hz ? box(s - hT, 0.002, c - pT, e + hT, 0.10, c + pT, plinthM, 0)
-         : box(c - pT, 0.002, s - hT, c + pT, 0.10, e + hT, plinthM, 0);
+      hz ? box(s - hT, b + 0.002, c - pT, e + hT, b + 0.10, c + pT, plinthM, 0)
+         : box(c - pT, b + 0.002, s - hT, c + pT, b + 0.10, e + hT, plinthM, 0);
     }
 
     if (Math.abs(t - H) < 0.01 || Math.abs(t - H_LOW) < 0.01) {
@@ -126,7 +128,7 @@ function W(x1, z1, x2, z2, ops = [], h = H, y0 = 0) {
   let p = a0;
   for (const [s, e] of ops) {
     B(p, s, y0, h, wallM);
-    B(s, e, 0, 0.9, wallM);
+    B(s, e, y0, 0.9, wallM);
     B(s, e, 2.0, h, wallM);
     hz ? box(s, 0.9, c - 0.025, e, 2.0, c + 0.025, winM)
        : box(c - 0.025, 0.9, s, c + 0.025, 2.0, e, winM);
@@ -136,11 +138,12 @@ function W(x1, z1, x2, z2, ops = [], h = H, y0 = 0) {
 }
 
 // Fungsi daun pintu terbuka berdasarkan titik engsel & sudut (meter)
-function D(hx, hz, w, deg) {
+function D(hx, hz, w, deg, baseY = 0) {
   const rad = deg * Math.PI / 180;
   const dx = Math.cos(rad) * w, dz = Math.sin(rad) * w;
-  const m = new T.Mesh(new T.BoxGeometry(w, 2.05, 0.05), doorM);
-  m.position.set(hx + dx / 2, 1.025, hz + dz / 2);
+  const doorH = 2.05 - baseY;
+  const m = new T.Mesh(new T.BoxGeometry(w, doorH, 0.05), doorM);
+  m.position.set(hx + dx / 2, baseY + doorH / 2, hz + dz / 2);
   m.rotation.y = -rad;
   scene.add(m);
 }
@@ -148,75 +151,78 @@ function D(hx, hz, w, deg) {
 // =========================================================================
 // KOORDINAT PRESISI SESUAI HITUNGAN DENAH (dalam satuan meter):
 // 
-// Sumbu X (Kiri -> Kanan, total lebar belakang = 8.00m + 3.00m = 11.00m):
-//   x = 0.00  : As dinding paling kiri (sayap kiri tinggi 3.20m)
-//   x = 3.00  : As dinding kiri bangunan utama + batas sayap kiri 3.20m
-//   x = 6.25  : As dinding tengah pembatas (3.00 + 3.25m)
-//   x = 8.00  : As dinding kiri Kamar Mandi (lebar dapur = 8.00m, lebar KM = 3.00m)
-//   x = 9.50  : As dinding kanan bangunan utama + batas sayap kanan 3.20m
-//   x = 11.00 : As dinding paling kanan (sayap kanan & dinding kanan KM tinggi 3.20m)
-// 
-// Sumbu Z (Belakang -> Depan, total panjang = 12.20m):
-//   z = 0.00  : As dinding paling belakang
-//   z = 1.50  : As dinding depan Kamar Mandi (dalam kamar mandi = 1.50m)
-//   z = 3.00  : As batas Dapur & bangunan utama
-//   z = 6.00  : As dinding depan Kamar Tidur kanan (3.00 + 3.00m)
-//   z = 7.20  : As dinding belakang Kamar Tidur kiri (3.00 + 4.20m Ruang Santai)
-//   z = 9.70  : As dinding depan Ruang Tamu (6.00 + 3.70m = 3.00 + 6.70m)
-//   z = 10.20 : As dinding depan Kamar Tidur kiri (3.00 + 7.20m, selisih 0.50m)
-//   z = 12.20 : Batas luar depan Teras (9.70 + 2.50m = 10.20 + 2.00m = 12.20m)
+// Sumbu Y (Elevasi Lantai & Atap):
+//   y = 0.00  : Permukaan lantai Bangunan Utama (R. Santai, KT 1, KT 2, R. Tamu)
+//   y = -0.10 : Permukaan lantai Dapur, Kamar Mandi, dan Teras (turun 10cm)
+//   y = -0.35 : Dasar pondasi / sloof
+//   y = 3.00  : Tinggi tiang teras
+//   y = 3.20  : Tinggi dinding sayap kiri & sayap kanan (Kamar Mandi)
+//   y = 3.50  : Tinggi dinding & plafon bangunan utama
 // =========================================================================
 
-// 1. Pondasi / pelat lantai rata penuh hingga sisi terluar dinding (ukuran keramik 0.60m x 0.60m)
-box(-hT, -0.3, -hT, 11.0 + hT, 0, 3.0 + hT, slabBackM, 0);
-box(3.0 - hT, -0.3, 3.0, 9.5 + hT, 0, 12.2, slabMainM, 0);
+// 1. Pondasi & pelat lantai dengan perbedaan elevasi 10cm (-0.10m untuk Dapur, Kamar Mandi & Teras)
+// Lantai Dapur & Kamar Mandi (turun 10cm: y = -0.10m)
+box(-hT, -0.35, -hT, 11.0 + hT, Y_DROP, 3.0 + hT, slabBackM, 0);
 
-// 2. Dinding Dapur & Perkakas + Kamar Mandi
+// Lantai Bangunan Utama (y = 0.00m)
+box(3.0 - hT, -0.35, 3.0, 6.25, 0, 10.2, slabMainM, 0);
+box(6.25, -0.35, 3.0, 9.5 + hT, 0, 9.7, slabMainM, 0);
+
+// Lantai Teras Depan (turun 10cm: y = -0.10m)
+box(3.0 - hT, -0.35, 10.2, 6.25, Y_DROP, 12.2, slabTerasKM, 0);
+box(6.25, -0.35, 9.7, 9.5 + hT, Y_DROP, 12.2, slabTerasRTM, 0);
+
+// Lis keramik bibir tangga penurunan 10cm di batas Teras & pintu Dapur
+box(3.0 - hT, Y_DROP, 10.2 + hT - 0.01, 6.25 + hT, 0, 10.2 + hT + 0.01, plinthM, 0);
+box(6.25 - hT, Y_DROP, 9.7 + hT - 0.01, 9.5 + hT, 0, 9.7 + hT + 0.01, plinthM, 0);
+box(3.0 - hT - 0.01, Y_DROP, 3.0, 3.0 - hT + 0.01, 0, 3.9, plinthM, 0);
+
+// 2. Dinding Dapur & Perkakas + Kamar Mandi (menapak di lantai y = -0.10m)
 // Sayap kiri (x = 0.00 s/d x = 3.00) tinggi 3.20m RATA
-W(0, 0, 3.0, 0, [], H_LOW, 0);
-W(0, 0, 0, 3.0, [], H_LOW, 0);
-W(0, 3.0, 1.85, 3.0, [], H_LOW, 0);
-W(2.75, 3.0, 3.0, 3.0, [], H_LOW, 0);
+W(0, 0, 3.0, 0, [], H_LOW, Y_DROP);
+W(0, 0, 0, 3.0, [], H_LOW, Y_DROP);
+W(0, 3.0, 1.85, 3.0, [], H_LOW, Y_DROP);
+W(2.75, 3.0, 3.0, 3.0, [], H_LOW, Y_DROP);
 
 // Bagian tengah di bawah atap pelana utama (x = 3.00 s/d x = 9.50) tinggi 3.50m
-W(3.0, 0, 9.5, 0, [], H, 0);
-W(3.0, 3.0, 9.5, 3.0, [], H, 0);
+W(3.0, 0, 9.5, 0, [], H, Y_DROP);
+W(3.0, 3.0, 9.5, 3.0, [], H, Y_DROP);
 
-// Sayap kanan (x = 9.50 s/d x = 11.00 — mencakup sisi kanan Kamar Mandi & dapur kanan) turun 30cm menjadi 3.20m RATA
-W(9.5, 0, 11.0, 0, [], H_LOW, 0);
-W(11.0, 0, 11.0, 3.0, [], H_LOW, 0);
-W(9.5, 3.0, 9.75, 3.0, [], H_LOW, 0);
-W(10.65, 3.0, 11.0, 3.0, [], H_LOW, 0);
+// Sayap kanan (x = 9.50 s/d x = 11.00 — mencakup sisi kanan Kamar Mandi & dapur kanan) tinggi 3.20m RATA
+W(9.5, 0, 11.0, 0, [], H_LOW, Y_DROP);
+W(11.0, 0, 11.0, 3.0, [], H_LOW, Y_DROP);
+W(9.5, 3.0, 9.75, 3.0, [], H_LOW, Y_DROP);
+W(10.65, 3.0, 11.0, 3.0, [], H_LOW, Y_DROP);
 
-// Sekat Kamar Mandi di pojok kanan atas (lebar 3.0m: x=8.00 s/d x=11.00, dalam 1.50m)
-W(8.0, 1.5, 9.5, 1.5, [], H, 0);
-W(9.5, 1.5, 11.0, 1.5, [], H_LOW, 0);
-W(8.0, 0.85, 8.0, 1.5, [], H, 0);
+// Sekat Kamar Mandi di pojok kanan atas (menapak di lantai y = -0.10m)
+W(8.0, 1.5, 9.5, 1.5, [], H, Y_DROP);
+W(9.5, 1.5, 11.0, 1.5, [], H_LOW, Y_DROP);
+W(8.0, 0.85, 8.0, 1.5, [], H, Y_DROP);
 
 // 3. Dinding Bangunan Utama (lebar 6.5m: x=3.0 s/d x=9.5, tinggi 3.5m)
-W(3.0, 3.9, 3.0, 10.2, [[4.7, 5.25], [5.65, 6.2]]);
-W(9.5, 3.0, 9.5, 9.7, [[4.85, 5.45]]);
+W(3.0, 3.9, 3.0, 10.2, [[4.7, 5.25], [5.65, 6.2]], H, 0);
+W(9.5, 3.0, 9.5, 9.7, [[4.85, 5.45]], H, 0);
 
 // Dinding tengah vertikal (x = 6.25)
-W(6.25, 3.0, 6.25, 4.9);
-W(6.25, 5.8, 6.25, 6.0);
-W(6.25, 7.2, 6.25, 10.2);
+W(6.25, 3.0, 6.25, 4.9, [], H, 0);
+W(6.25, 5.8, 6.25, 6.0, [], H, 0);
+W(6.25, 7.2, 6.25, 10.2, [], H, 0);
 
 // Dinding horizontal pembatas ruangan
-W(6.25, 6.0, 9.5, 6.0);
-W(3.0, 7.2, 5.05, 7.2);
-W(5.95, 7.2, 6.25, 7.2);
+W(6.25, 6.0, 9.5, 6.0, [], H, 0);
+W(3.0, 7.2, 5.05, 7.2, [], H, 0);
+W(5.95, 7.2, 6.25, 7.2, [], H, 0);
 
 // Dinding depan Kamar Tidur kiri (z = 10.20, lebar 3.25m) dengan 2 jendela
-W(3.0, 10.2, 6.25, 10.2, [[3.75, 4.35], [4.95, 5.55]]);
+W(3.0, 10.2, 6.25, 10.2, [[3.75, 4.35], [4.95, 5.55]], H, 0);
 
 // Dinding depan Ruang Tamu (z = 9.70, lebar 3.25m) dengan pintu utama & 2 jendela
-W(6.25, 9.7, 6.45, 9.7);
-W(7.35, 9.7, 9.5, 9.7, [[7.8, 8.4], [8.65, 9.25]]);
+W(6.25, 9.7, 6.45, 9.7, [], H, 0);
+W(7.35, 9.7, 9.5, 9.7, [[7.8, 8.4], [8.65, 9.25]], H, 0);
 
 // 4. Balok gawang di atas bukaan pintu & penghubung ruangan
-W(1.85, 3.0, 2.75, 3.0, [], H_LOW, 2.1);   // Balok gawang pintu dapur kiri ikut tinggi 3.20m
-W(9.75, 3.0, 10.65, 3.0, [], H_LOW, 2.1);  // Balok gawang pintu dapur kanan ikut tinggi 3.20m
+W(1.85, 3.0, 2.75, 3.0, [], H_LOW, 2.1, true);   // Balok gawang pintu dapur kiri ikut tinggi 3.20m
+W(9.75, 3.0, 10.65, 3.0, [], H_LOW, 2.1, true);  // Balok gawang pintu dapur kanan ikut tinggi 3.20m
 [
   [8.0, 0.0, 8.0, 0.85],
   [3.0, 3.0, 3.0, 3.9],
@@ -224,53 +230,53 @@ W(9.75, 3.0, 10.65, 3.0, [], H_LOW, 2.1);  // Balok gawang pintu dapur kanan iku
   [6.25, 6.0, 6.25, 7.2],
   [5.05, 7.2, 5.95, 7.2],
   [6.45, 9.7, 7.35, 9.7]
-].forEach(a => W(a[0], a[1], a[2], a[3], [], H, 2.1));
+].forEach(a => W(a[0], a[1], a[2], a[3], [], H, 2.1, true));
 
 // 4a. Balok beton bertulang (ring balk pengaku melintang) di atas Dapur & Kamar Mandi (y = 3.15m s/d 3.50m)
 [
   [3.0, 0.0, 3.0, 3.0],     // Balok kiri sejajar dinding kiri bangunan utama (x = 3.00m)
   [6.25, 0.0, 6.25, 3.0],   // Balok tengah sejajar dinding tengah bangunan utama (x = 6.25m)
   [9.5, 0.0, 9.5, 3.0]      // Balok kanan sejajar dinding kanan bangunan utama melewati KM & Dapur (x = 9.50m)
-].forEach(b => W(b[0], b[1], b[2], b[3], [], H, 3.15));
+].forEach(b => W(b[0], b[1], b[2], b[3], [], H, 3.15, true));
 
 // 4b. Garis siku sudut dalam & luar tiap ruangan
 [
-  // Dapur & Perkakas (sayap kiri tinggi 3.20m, sayap kanan tinggi 3.20m)
-  [0 + hT, 0 + hT, H_LOW], [0 + hT, 3.0 - hT, H_LOW],
-  [8.0 - hT, 0 + hT, H], [11.0 - hT, 3.0 - hT, H_LOW], [11.0 - hT, 1.5 + hT, H_LOW],
-  // Kamar Mandi (sisi kiri di bawah pelana utama 3.50m, sisi kanan di sayap kanan 3.20m)
-  [8.0 + hT, 0 + hT, H], [11.0 - hT, 0 + hT, H_LOW], [8.0 + hT, 1.5 - hT, H], [11.0 - hT, 1.5 - hT, H_LOW],
+  // Dapur & Perkakas (menapak di lantai y = -0.10m)
+  [0 + hT, 0 + hT, Y_DROP, H_LOW], [0 + hT, 3.0 - hT, Y_DROP, H_LOW],
+  [8.0 - hT, 0 + hT, Y_DROP, H], [11.0 - hT, 3.0 - hT, Y_DROP, H_LOW], [11.0 - hT, 1.5 + hT, Y_DROP, H_LOW],
+  // Kamar Mandi (menapak di lantai y = -0.10m)
+  [8.0 + hT, 0 + hT, Y_DROP, H], [11.0 - hT, 0 + hT, Y_DROP, H_LOW], [8.0 + hT, 1.5 - hT, Y_DROP, H], [11.0 - hT, 1.5 - hT, Y_DROP, H_LOW],
   // Ruang Santai
-  [3.0 + hT, 3.0 + hT, H], [6.25 - hT, 3.0 + hT, H], [3.0 + hT, 7.2 - hT, H], [6.25 - hT, 7.2 - hT, H],
+  [3.0 + hT, 3.0 + hT, 0, H], [6.25 - hT, 3.0 + hT, 0, H], [3.0 + hT, 7.2 - hT, 0, H], [6.25 - hT, 7.2 - hT, 0, H],
   // Kamar Tidur Kanan (KT 1)
-  [6.25 + hT, 3.0 + hT, H], [9.5 - hT, 3.0 + hT, H], [6.25 + hT, 6.0 - hT, H], [9.5 - hT, 6.0 - hT, H],
+  [6.25 + hT, 3.0 + hT, 0, H], [9.5 - hT, 3.0 + hT, 0, H], [6.25 + hT, 6.0 - hT, 0, H], [9.5 - hT, 6.0 - hT, 0, H],
   // Kamar Tidur Kiri (KT 2)
-  [3.0 + hT, 7.2 + hT, H], [6.25 - hT, 7.2 + hT, H], [3.0 + hT, 10.2 - hT, H], [6.25 - hT, 10.2 - hT, H],
+  [3.0 + hT, 7.2 + hT, 0, H], [6.25 - hT, 7.2 + hT, 0, H], [3.0 + hT, 10.2 - hT, 0, H], [6.25 - hT, 10.2 - hT, 0, H],
   // Ruang Tamu
-  [6.25 + hT, 6.0 + hT, H], [9.5 - hT, 6.0 + hT, H], [6.25 + hT, 9.7 - hT, H], [9.5 - hT, 9.7 - hT, H],
+  [6.25 + hT, 6.0 + hT, 0, H], [9.5 - hT, 6.0 + hT, 0, H], [6.25 + hT, 9.7 - hT, 0, H], [9.5 - hT, 9.7 - hT, 0, H],
   // Sudut luar bangunan
-  [-hT, -hT, H_LOW], [-hT, 3.0 + hT, H_LOW], [11.0 + hT, -hT, H_LOW], [11.0 + hT, 3.0 + hT, H_LOW],
-  [3.0 - hT, 10.2 + hT, H], [6.25 + hT, 10.2 + hT, H], [9.5 + hT, 9.7 + hT, H]
-].forEach(([cx, cz, topY]) => cornerLine(cx, cz, 0, topY));
+  [-hT, -hT, Y_DROP, H_LOW], [-hT, 3.0 + hT, Y_DROP, H_LOW], [11.0 + hT, -hT, Y_DROP, H_LOW], [11.0 + hT, 3.0 + hT, Y_DROP, H_LOW],
+  [3.0 - hT, 10.2 + hT, 0, H], [6.25 + hT, 10.2 + hT, 0, H], [9.5 + hT, 9.7 + hT, 0, H]
+].forEach(([cx, cz, botY, topY]) => cornerLine(cx, cz, botY, topY));
 
-// 5. Tiang Teras depan (sejajar tepi luar bangunan x = 2.925m .. 9.575m, z = 12.20m, tinggi 3.0m)
+// 5. Tiang Teras depan (menapak di lantai teras y = -0.10m, z = 12.20m, puncak di y = 3.0m)
 [3.0 - hT, 6.125, 9.5 + hT - 0.25].forEach(x => {
-  box(x, 0, 11.95, x + 0.25, H_TERAS, 12.2, wallM, 0);
-  box(x - 0.01, 0.002, 11.94, x + 0.26, 0.10, 12.21, plinthM, 0);
-  cornerLine(x, 11.95, 0, H_TERAS);
-  cornerLine(x + 0.25, 11.95, 0, H_TERAS);
-  cornerLine(x, 12.2, 0, H_TERAS);
-  cornerLine(x + 0.25, 12.2, 0, H_TERAS);
+  box(x, Y_DROP, 11.95, x + 0.25, H_TERAS, 12.2, wallM, 0);
+  box(x - 0.01, Y_DROP + 0.002, 11.94, x + 0.26, Y_DROP + 0.10, 12.21, plinthM, 0);
+  cornerLine(x, 11.95, Y_DROP, H_TERAS);
+  cornerLine(x + 0.25, 11.95, Y_DROP, H_TERAS);
+  cornerLine(x, 12.2, Y_DROP, H_TERAS);
+  cornerLine(x + 0.25, 12.2, Y_DROP, H_TERAS);
 });
 
-// 6. Daun Pintu (coklat kayu) sesuai arah bukaan pada denah terbaru
-D(2.75, 3.0, 0.9, -150);
-D(10.65, 3.0, 0.9, -150);
-D(8.0, 0.0, 0.85, 32);
-D(3.0, 3.0, 0.9, 25);
-D(6.25, 5.8, 0.9, -25);
-D(5.95, 7.2, 0.9, 125);
-D(6.45, 9.7, 0.9, -32);
+// 6. Daun Pintu (coklat kayu) sesuai elevasi lantai masing-masing
+D(2.75, 3.0, 0.9, -150, Y_DROP);
+D(10.65, 3.0, 0.9, -150, Y_DROP);
+D(8.0, 0.0, 0.85, 32, Y_DROP);
+D(3.0, 3.0, 0.9, 25, 0);
+D(6.25, 5.8, 0.9, -25, 0);
+D(5.95, 7.2, 0.9, 125, 0);
+D(6.45, 9.7, 0.9, -32, 0);
 
 // 7. Atap Pelana Utama + Sayap Dapur + Kanopi Teras + Plafon Interior
 const roofs = new T.Group();
@@ -380,8 +386,8 @@ function dimLabel(txt, x, y, z, scale = 0.72) {
   dims.add(sp);
 }
 
-function dimH(x1, z1, x2, z2, txt, tickDir = [0, 0], labelOffset = [0, 0]) {
-  const y = 0.04, t = 0.16;
+function dimH(x1, z1, x2, z2, txt, tickDir = [0, 0], labelOffset = [0, 0], baseY = 0) {
+  const y = baseY + 0.04, t = 0.16;
   const [tx, tz] = tickDir;
 
   const mainLine = new T.Line(
@@ -403,7 +409,7 @@ function dimH(x1, z1, x2, z2, txt, tickDir = [0, 0], labelOffset = [0, 0]) {
   );
   dims.add(ticks);
 
-  dimLabel(txt, (x1 + x2) / 2 + labelOffset[0], 0.28, (z1 + z2) / 2 + labelOffset[1], 0.65);
+  dimLabel(txt, (x1 + x2) / 2 + labelOffset[0], baseY + 0.28, (z1 + z2) / 2 + labelOffset[1], 0.65);
 }
 
 function dimV(x, z, y1, y2, txt, offsetX = 0.35, offsetZ = 0) {
@@ -433,48 +439,49 @@ function dimV(x, z, y1, y2, txt, offsetX = 0.35, offsetZ = 0) {
   dimLabel(txt, px + 0.55, (y1 + y2) / 2, pz, 0.75);
 }
 
-dimH(0.0, -0.55, 8.0, -0.55, '8m', [0, 1], [0, -0.35]);
-dimH(8.0, -0.55, 11.0, -0.55, '3m', [0, 1], [0, -0.35]);
+dimH(0.0, -0.55, 8.0, -0.55, '8m', [0, 1], [0, -0.35], Y_DROP);
+dimH(8.0, -0.55, 11.0, -0.55, '3m', [0, 1], [0, -0.35], Y_DROP);
 
-dimH(-0.55, 0.0, -0.55, 3.0, '3m', [1, 0], [-0.45, 0]);
-dimH(11.55, 0.0, 11.55, 3.0, '3m', [1, 0], [0.45, 0]);
-dimH(0.0, 3.45, 3.0, 3.45, '3m', [0, 1], [0, 0.35]);
-dimH(9.5, 3.45, 11.0, 3.45, '1.5m', [0, 1], [0, 0.35]);
-dimH(3.0, 2.55, 9.5, 2.55, '6.5m', [0, 1], [0, -0.32]);
+dimH(-0.55, 0.0, -0.55, 3.0, '3m', [1, 0], [-0.45, 0], Y_DROP);
+dimH(11.55, 0.0, 11.55, 3.0, '3m', [1, 0], [0.45, 0], Y_DROP);
+dimH(0.0, 3.45, 3.0, 3.45, '3m', [0, 1], [0, 0.35], Y_DROP);
+dimH(9.5, 3.45, 11.0, 3.45, '1.5m', [0, 1], [0, 0.35], Y_DROP);
+dimH(3.0, 2.55, 9.5, 2.55, '6.5m', [0, 1], [0, -0.32], Y_DROP);
 
-dimH(2.45, 3.0, 2.45, 10.2, '7.2m', [1, 0], [-0.55, 0]);
-dimH(2.45, 10.2, 2.45, 12.2, '2m', [1, 0], [-0.45, 0]);
-dimH(10.05, 3.0, 10.05, 9.7, '6.7m', [1, 0], [0.55, 0]);
-dimH(10.05, 9.7, 10.05, 12.2, '2.5m', [1, 0], [0.5, 0]);
-dimH(3.0, 12.75, 9.5, 12.75, '6.5m', [0, 1], [0, 0.38]);
+dimH(2.45, 3.0, 2.45, 10.2, '7.2m', [1, 0], [-0.55, 0], 0);
+dimH(2.45, 10.2, 2.45, 12.2, '2m', [1, 0], [-0.45, 0], Y_DROP);
+dimH(10.05, 3.0, 10.05, 9.7, '6.7m', [1, 0], [0.55, 0], 0);
+dimH(10.05, 9.7, 10.05, 12.2, '2.5m', [1, 0], [0.5, 0], Y_DROP);
+dimH(3.0, 12.75, 9.5, 12.75, '6.5m', [0, 1], [0, 0.38], Y_DROP);
 
-dimH(5.9, 3.0, 5.9, 7.2, '4.2m', [1, 0], [-0.48, 0]);
-dimH(6.6, 6.0, 6.6, 7.2, '1.25m', [1, 0], [0.52, 0]);
-dimH(9.15, 3.0, 9.15, 6.0, '3m', [1, 0], [-0.38, 0]);
-dimH(9.15, 6.0, 9.15, 9.7, '3.7m', [1, 0], [-0.42, 0]);
-dimH(3.35, 7.2, 3.35, 10.2, '3m', [1, 0], [0.38, 0]);
-dimH(3.0, 10.55, 6.25, 10.55, '3.25m', [0, 1], [0, 0.32]);
-dimH(6.25, 10.05, 9.5, 10.05, '3.25m', [0, 1], [0, 0.32]);
-dimH(6.55, 9.7, 6.55, 10.2, '50cm', [1, 0], [0.48, 0]);
+dimH(5.9, 3.0, 5.9, 7.2, '4.2m', [1, 0], [-0.48, 0], 0);
+dimH(6.6, 6.0, 6.6, 7.2, '1.25m', [1, 0], [0.52, 0], 0);
+dimH(9.15, 3.0, 9.15, 6.0, '3m', [1, 0], [-0.38, 0], 0);
+dimH(9.15, 6.0, 9.15, 9.7, '3.7m', [1, 0], [-0.42, 0], 0);
+dimH(3.35, 7.2, 3.35, 10.2, '3m', [1, 0], [0.38, 0], 0);
+dimH(3.0, 10.55, 6.25, 10.55, '3.25m', [0, 1], [0, 0.32], Y_DROP);
+dimH(6.25, 10.05, 9.5, 10.05, '3.25m', [0, 1], [0, 0.32], Y_DROP);
+dimH(6.55, 9.7, 6.55, 10.2, '50cm', [1, 0], [0.48, 0], Y_DROP);
 
-dimV(0.0, 0.0, 0, H_LOW, 'Tinggi 3.2m', -0.95, 0);
-dimV(11.0, 3.0, 0, H_LOW, 'Tinggi 3.2m', 0.45, 0);
+dimV(0.0, 0.0, Y_DROP, H_LOW, 'Tinggi 3.2m', -0.95, 0);
+dimV(11.0, 3.0, Y_DROP, H_LOW, 'Tinggi 3.2m', 0.45, 0);
 dimV(9.5, 6.0, 0, H, 'Tinggi 3.5m', 0.45, 0);
-dimV(9.5, 12.2, 0, H_TERAS, 'Tiang 3m', 0.45, 0);
+dimV(9.5, 12.2, Y_DROP, H_TERAS, 'Tiang 3m', 0.45, 0);
+dimV(3.0, 12.2, Y_DROP, 0, 'Turun 10cm', -1.05, 0);
 
-// 9. FITUR POV 360° TEPAT DI TENGAH TIAP RUANGAN
+// 9. FITUR POV 360° TEPAT DI TENGAH TIAP RUANGAN (elevasi mata ikut elevasi lantai ruangan)
 const povGroup = new T.Group();
 povGroup.visible = false;
 scene.add(povGroup);
 
 const ROOMS = [
-  { name: 'Dapur & Perkakas', x: 4.00,  z: 1.50,  yaw: 0 },
-  { name: 'Kamar Mandi',      x: 9.50,  z: 0.75,  yaw: -Math.PI / 2 },
-  { name: 'Ruang Santai',     x: 4.625, z: 5.10,  yaw: Math.PI / 2 },
-  { name: 'Kamar Tidur 1',    x: 7.875, z: 4.50,  yaw: -Math.PI / 2 },
-  { name: 'Kamar Tidur 2',    x: 4.625, z: 8.70,  yaw: 0 },
-  { name: 'Ruang Tamu',       x: 7.875, z: 7.85,  yaw: Math.PI },
-  { name: 'Teras',            x: 6.25,  z: 10.95, yaw: Math.PI }
+  { name: 'Dapur & Perkakas', x: 4.00,  z: 1.50,  yaw: 0,            floorY: Y_DROP },
+  { name: 'Kamar Mandi',      x: 9.50,  z: 0.75,  yaw: -Math.PI / 2, floorY: Y_DROP },
+  { name: 'Ruang Santai',     x: 4.625, z: 5.10,  yaw: Math.PI / 2,  floorY: 0 },
+  { name: 'Kamar Tidur 1',    x: 7.875, z: 4.50,  yaw: -Math.PI / 2, floorY: 0 },
+  { name: 'Kamar Tidur 2',    x: 4.625, z: 8.70,  yaw: 0,            floorY: 0 },
+  { name: 'Ruang Tamu',       x: 7.875, z: 7.85,  yaw: Math.PI,      floorY: 0 },
+  { name: 'Teras',            x: 6.25,  z: 10.95, yaw: Math.PI,      floorY: Y_DROP }
 ];
 
 const povHotspots = [];
@@ -513,7 +520,7 @@ ROOMS.forEach((rm, idx) => {
     new T.MeshBasicMaterial({ color: 0x0284c7, side: T.DoubleSide })
   );
   ring.rotation.x = -Math.PI / 2;
-  ring.position.set(rm.x, 0.03, rm.z);
+  ring.position.set(rm.x, rm.floorY + 0.03, rm.z);
   ring.userData.roomIndex = idx;
   povGroup.add(ring);
 
@@ -521,7 +528,7 @@ ROOMS.forEach((rm, idx) => {
     map: makeHotspotTexture(rm.name),
     depthTest: false
   }));
-  sp.position.set(rm.x, 1.35, rm.z);
+  sp.position.set(rm.x, rm.floorY + 1.35, rm.z);
   sp.scale.set(1.9, 0.83, 1);
   sp.userData.roomIndex = idx;
   povGroup.add(sp);
@@ -582,7 +589,7 @@ function togglePOV(forceState) {
 function upd() {
   if (povMode && activeRoom >= 0) {
     const rm = ROOMS[activeRoom];
-    const eyeY = 1.65;
+    const eyeY = rm.floorY + 1.65;
     cam.position.set(rm.x, eyeY, rm.z);
     const lookX = rm.x + Math.sin(povYaw) * Math.cos(povPitch);
     const lookY = eyeY + Math.sin(povPitch);
