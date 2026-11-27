@@ -305,6 +305,14 @@
             scene.add(new T.Line(geo, cornerM));
         }
 
+        function segLine(x0, y0, z0, x1, y1, z1) {
+            const geo = new T.BufferGeometry().setFromPoints([
+                new T.Vector3(x0, y0, z0),
+                new T.Vector3(x1, y1, z1)
+            ]);
+            scene.add(new T.Line(geo, cornerM));
+        }
+
         let wallOrder = 0;
         function W(x1, z1, x2, z2, ops = [], h = H, y0 = 0, isBeam = false) {
             const wIdx = ++wallOrder;
@@ -445,7 +453,7 @@
         ].forEach(([cx, cz, botY, topY]) => cornerLine(cx, cz, botY, topY));
 
         // =========================================================================
-        // 5. TIANG TERAS DEPAN
+        // 5. TIANG & BALOK COR TERAS DEPAN
         // =========================================================================
         [3.0 - hT, 6.125, 9.5 + hT - 0.25].forEach((x, idx) => {
             const pJit = (idx + 1) * 0.0001;
@@ -456,6 +464,54 @@
             cornerLine(x, 12.2, Y_DROP, H_TERAS);
             cornerLine(x + 0.25, 12.2, Y_DROP, H_TERAS);
         });
+
+        // Balok cor horizontal penghubung tiang teras depan
+        const TERAS_BEAM_H = 0.22;
+        box(3.0 - hT + 0.0002, H_TERAS - TERAS_BEAM_H, 11.9502, 9.5 + hT - 0.0002, H_TERAS - 0.0002, 12.1998, wallM, 0);
+        [
+            [3.0 - hT + 0.25, 6.125],
+            [6.375, 9.5 + hT - 0.25]
+        ].forEach(([bx0, bx1]) => {
+            segLine(bx0, H_TERAS, 11.95, bx1, H_TERAS, 11.95);
+            segLine(bx0, H_TERAS, 12.2, bx1, H_TERAS, 12.2);
+            segLine(bx0, H_TERAS - TERAS_BEAM_H, 11.95, bx1, H_TERAS - TERAS_BEAM_H, 11.95);
+            segLine(bx0, H_TERAS - TERAS_BEAM_H, 12.2, bx1, H_TERAS - TERAS_BEAM_H, 12.2);
+        });
+
+        // Balok cor miring teras (kiri, tengah, & kanan sejajar kemiringan atap kanopi asbes)
+        function addSlopedTerasBeam(xStart, z0, z1 = 12.2, w = 0.25, h = TERAS_BEAM_H) {
+            const slope = 0.46 / 2.9;
+            const yTop0 = H_TERAS + (z1 - z0) * slope;
+            const yTop1 = H_TERAS;
+            const yBot0 = yTop0 - h;
+            const yBot1 = yTop1 - h;
+
+            const s = new T.Shape();
+            s.moveTo(-z0, yBot0);
+            s.lineTo(-z1, yBot1);
+            s.lineTo(-z1, yTop1);
+            s.lineTo(-z0, yTop0);
+            s.closePath();
+
+            const geo = new T.ExtrudeGeometry(s, {
+                depth: w - 0.0006,
+                bevelEnabled: false
+            });
+            const mesh = new T.Mesh(geo, wallM);
+            mesh.rotation.y = Math.PI / 2;
+            mesh.position.set(xStart + 0.0003, 0, 0);
+            scene.add(mesh);
+
+            const x0 = xStart, x1 = xStart + w;
+            segLine(x0, yTop0, z0, x0, yTop1, z1);
+            segLine(x1, yTop0, z0, x1, yTop1, z1);
+            segLine(x0, yBot0, z0, x0, yBot1, z1);
+            segLine(x1, yBot0, z0, x1, yBot1, z1);
+        }
+
+        addSlopedTerasBeam(3.0 - hT, 10.2, 12.2);
+        addSlopedTerasBeam(6.125, 10.2, 12.2);
+        addSlopedTerasBeam(9.5 + hT - 0.25, 9.7, 12.2);
 
         // =========================================================================
         // 6. DAUN PINTU
