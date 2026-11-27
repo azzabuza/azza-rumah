@@ -9,10 +9,15 @@ html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:
 button{background:var(--btn);color:var(--fg);border:1px solid #8886;border-radius:8px;padding:8px 12px;font-size:14px;cursor:pointer}
 canvas{display:block;touch-action:none}
 </style></head><body>
-<div id="ui"><button id="p">Perspektif</button><button id="t">Tampak atas</button><button id="r">Hilangkan atap</button></div>
+<div id="ui">
+  <button id="p">Perspektif</button>
+  <button id="t">Tampak atas</button>
+  <button id="r">Hilangkan atap</button>
+  <button id="m">Sembunyikan garis ukur</button>
+</div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-const T = THREE, H = 3, TH = 0.15;
+const T = THREE, H = 3.5, H_TERAS = 3.0, TH = 0.15;
 const scene = new T.Scene(), dark = matchMedia('(prefers-color-scheme:dark)').matches;
 scene.background = new T.Color(dark ? 0x1c1c1c : 0xf4f4f4);
 
@@ -107,20 +112,21 @@ function D(hx, hz, w, deg) {
 //   y = 0.90  : Ambang bawah jendela
 //   y = 2.00  : Ambang atas jendela
 //   y = 2.10  : Ambang bawah gawang / balok atas pintu
-//   y = 3.00  : Tinggi dinding standar / ring balok (H = 3.00m)
-//   y = 4.90  : Puncak bubungan atap pelana utama (3.00 + 1.90m)
+//   y = 3.00  : Tinggi tiang teras (H_TERAS = 3.00m)
+//   y = 3.50  : Tinggi dinding bangunan utama & dapur (H = 3.50m)
+//   y = 5.40  : Puncak bubungan atap pelana utama (3.50 + 1.90m)
 // =========================================================================
 
 // 1. Pondasi / lantai dasar presisi
 box(0, -0.3, 0, 11.0, 0, 3.0, slabM, 1);
 box(3.0, -0.3, 3.0, 9.5, 0, 12.2, slabM, 1);
 
-// 2. Dinding Dapur & Perkakas + Kamar Mandi (11m x 3m)
+// 2. Dinding Dapur & Perkakas + Kamar Mandi (11m x 3m, tinggi 3.5m)
 W(0, 0, 11.0, 0);          // Dinding belakang 11m
 W(0, 0, 0, 3.0);           // Dinding kiri 3m
 W(11.0, 0, 11.0, 3.0);     // Dinding kanan 3m
 
-// Dinding bawah dapur (kiri 3m dengan bukaan pintu 0.9m, kanan 1.5m dengan bukaan pintu 0.9m)
+// Dinding bawah dapur
 W(0, 3.0, 1.85, 3.0);
 W(2.75, 3.0, 9.75, 3.0);
 W(10.65, 3.0, 11.0, 3.0);
@@ -129,7 +135,7 @@ W(10.65, 3.0, 11.0, 3.0);
 W(8.8, 1.5, 11.0, 1.5);
 W(8.8, 0.9, 8.8, 1.5);
 
-// 3. Dinding Bangunan Utama (lebar 6.5m: x=3.0 s/d x=9.5)
+// 3. Dinding Bangunan Utama (lebar 6.5m: x=3.0 s/d x=9.5, tinggi 3.5m)
 // Dinding kiri bangunan utama (z=3.0 s/d z=10.20 = 7.2m)
 W(3.0, 3.9, 3.0, 10.2, [[4.7, 5.25], [5.65, 6.2]]);
 
@@ -153,7 +159,7 @@ W(3.0, 10.2, 6.25, 10.2, [[3.75, 4.35], [4.95, 5.55]]);
 W(6.25, 9.7, 6.45, 9.7);
 W(7.35, 9.7, 9.5, 9.7, [[7.8, 8.4], [8.65, 9.25]]);
 
-// 4. Balok gawang di atas bukaan pintu & penghubung ruangan (tinggi 2.1m s/d 3.0m)
+// 4. Balok gawang di atas bukaan pintu & penghubung ruangan (tinggi 2.1m s/d 3.5m)
 [
   [1.85, 3.0, 2.75, 3.0],     // Atas pintu Dapur kiri
   [9.75, 3.0, 10.65, 3.0],    // Atas pintu Dapur kanan
@@ -165,8 +171,8 @@ W(7.35, 9.7, 9.5, 9.7, [[7.8, 8.4], [8.65, 9.25]]);
   [6.45, 9.7, 7.35, 9.7]      // Atas pintu Utama Ruang Tamu
 ].forEach(a => W(a[0], a[1], a[2], a[3], [], H, 2.1));
 
-// 5. Tiang Teras depan (z = 12.20m) menumpu pas di bawah kanopi
-[3.0, 6.125, 9.25].forEach(x => box(x, 0, 11.95, x + 0.25, 2.38, 12.2, wallM, 1));
+// 5. Tiang Teras depan (z = 12.20m, tinggi 3.0m) menumpu pas di bawah kanopi
+[3.0, 6.125, 9.25].forEach(x => box(x, 0, 11.95, x + 0.25, H_TERAS, 12.2, wallM, 1));
 
 // 6. Daun Pintu (coklat kayu) sesuai arah bukaan pada denah
 D(2.75, 3.0, 0.9, -150);      // Pintu Dapur kiri
@@ -203,7 +209,7 @@ function gable(x0, z0, x1, z1, alongX, rh, o) {
   roofs.add(l);
 }
 
-// Atap utama menaungi bangunan utama x=3.0..9.5, z=0..10.2
+// Atap utama menaungi bangunan utama x=3.0..9.5, z=0..10.2 (mulai dari y=3.5m)
 gable(3.0, 0, 9.5, 10.2, true, 1.9, 0.4);
 
 // Atap sayap dapur kiri (x=-0.4..2.6) & kanan (x=9.9..11.4) mengikuti kemiringan atap utama
@@ -226,12 +232,12 @@ function wingFB(x0, x1) {
 wingFB(-0.4, 2.6);
 wingFB(9.9, 11.4);
 
-// Kanopi teras miring menaungi teras z=9.7..12.2 (overhang depan sampai z=12.6)
+// Kanopi teras miring menumpu pas di atas tiang teras (y=3.0m) sampai dinding utama (y=3.5m)
 const cs = new T.Shape();
-cs.moveTo(-9.7, 2.86);
-cs.lineTo(-12.6, 2.23);
-cs.lineTo(-12.6, 2.35);
-cs.lineTo(-9.7, 2.98);
+cs.moveTo(-9.7, 3.38);
+cs.lineTo(-12.6, 2.92);
+cs.lineTo(-12.6, 3.04);
+cs.lineTo(-9.7, 3.50);
 cs.closePath();
 const cm = new T.Mesh(new T.ExtrudeGeometry(cs, { depth: 6.7, bevelEnabled: false }), roofM);
 cm.rotation.y = Math.PI / 2;
@@ -241,6 +247,92 @@ const cl = new T.LineSegments(new T.EdgesGeometry(cm.geometry), edgeM);
 cl.rotation.copy(cm.rotation);
 cl.position.copy(cm.position);
 roofs.add(cl);
+
+// 8. GARIS UKUR PRESISI (METER) UNTUK TUKANG
+const dims = new T.Group();
+scene.add(dims);
+const dimLineM = new T.LineBasicMaterial({ color: 0xdc2626 });
+
+function dimLabel(txt, x, y, z, scale = 0.72) {
+  const cv = document.createElement('canvas');
+  cv.width = 256;
+  cv.height = 96;
+  const g = cv.getContext('2d');
+  g.fillStyle = 'rgba(255,255,255,0.92)';
+  g.strokeStyle = '#dc2626';
+  g.lineWidth = 5;
+  g.beginPath();
+  g.roundRect(14, 16, 228, 64, 14);
+  g.fill();
+  g.stroke();
+  g.fillStyle = '#b91c1c';
+  g.font = 'bold 34px system-ui, sans-serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText(txt, 128, 50);
+  const sp = new T.Sprite(new T.SpriteMaterial({
+    map: new T.CanvasTexture(cv),
+    depthTest: false
+  }));
+  sp.position.set(x, y, z);
+  sp.scale.set(scale * 2.2, scale * 0.82, 1);
+  dims.add(sp);
+}
+
+// Garis ukur horizontal di lantai (y = 0.04)
+function dimH(x1, z1, x2, z2, txt, tickDir = [0, 0], labelOffset = [0, 0]) {
+  const y = 0.04, t = 0.16;
+  const [tx, tz] = tickDir;
+  const pts = [
+    new T.Vector3(x1, y, z1), new T.Vector3(x2, y, z2),
+    new T.Vector3(x1 - tx * t, y, z1 - tz * t), new T.Vector3(x1 + tx * t, y, z1 + tz * t),
+    new T.Vector3(x2 - tx * t, y, z2 - tz * t), new T.Vector3(x2 + tx * t, y, z2 + tz * t)
+  ];
+  dims.add(new T.LineSegments(new T.BufferGeometry().setFromPoints(pts), dimLineM));
+  dimLabel(txt, (x1 + x2) / 2 + labelOffset[0], 0.28, (z1 + z2) / 2 + labelOffset[1], 0.65);
+}
+
+// Garis ukur tinggi vertikal (sumbu Y)
+function dimV(x, z, y1, y2, txt, offsetX = 0.35, offsetZ = 0) {
+  const t = 0.18;
+  const px = x + offsetX, pz = z + offsetZ;
+  const pts = [
+    new T.Vector3(px, y1, pz), new T.Vector3(px, y2, pz),
+    new T.Vector3(x, y1, z), new T.Vector3(px + t, y1, pz),
+    new T.Vector3(x, y2, z), new T.Vector3(px + t, y2, pz)
+  ];
+  dims.add(new T.LineSegments(new T.BufferGeometry().setFromPoints(pts), dimLineM));
+  dimLabel(txt, px + 0.55, (y1 + y2) / 2, pz, 0.75);
+}
+
+// Dimensi luar bangunan (lebar & panjang)
+dimH(0.0, -0.55, 11.0, -0.55, '11m', [0, 1], [0, -0.35]);
+dimH(-0.55, 0.0, -0.55, 3.0, '3m', [1, 0], [-0.45, 0]);
+dimH(11.55, 0.0, 11.55, 3.0, '3m', [1, 0], [0.45, 0]);
+dimH(0.0, 3.45, 3.0, 3.45, '3m', [0, 1], [0, 0.35]);
+dimH(9.5, 3.45, 11.0, 3.45, '1.5m', [0, 1], [0, 0.35]);
+dimH(3.0, 2.55, 9.5, 2.55, '6.5m', [0, 1], [0, -0.32]);
+
+// Dimensi samping kiri & kanan bangunan utama + teras
+dimH(2.45, 3.0, 2.45, 10.2, '7.2m', [1, 0], [-0.55, 0]);
+dimH(2.45, 10.2, 2.45, 12.2, '2m', [1, 0], [-0.45, 0]);
+dimH(10.05, 3.0, 10.05, 9.7, '6.7m', [1, 0], [0.55, 0]);
+dimH(10.05, 9.7, 10.05, 12.2, '2.5m', [1, 0], [0.5, 0]);
+dimH(3.0, 12.75, 9.5, 12.75, '6.5m', [0, 1], [0, 0.38]);
+
+// Dimensi pembagian ruangan dalam
+dimH(5.9, 3.0, 5.9, 7.2, '4.2m', [1, 0], [-0.48, 0]);
+dimH(6.6, 6.0, 6.6, 7.2, '1.2m', [1, 0], [0.48, 0]);
+dimH(9.15, 3.0, 9.15, 6.0, '3m', [1, 0], [-0.38, 0]);
+dimH(9.15, 6.0, 9.15, 9.7, '3.7m', [1, 0], [-0.42, 0]);
+dimH(3.35, 7.2, 3.35, 10.2, '3m', [1, 0], [0.38, 0]);
+dimH(3.0, 10.55, 6.25, 10.55, '3.25m', [0, 1], [0, 0.32]);
+dimH(6.25, 10.05, 9.5, 10.05, '3.25m', [0, 1], [0, 0.32]);
+dimH(6.55, 9.7, 6.55, 10.2, '50cm', [1, 0], [0.48, 0]);
+
+// Dimensi ketinggian vertikal (Tinggi bangunan 3.5m & Tiang teras 3m)
+dimV(11.0, 3.0, 0, H, 'Tinggi 3.5m', 0.45, 0);
+dimV(9.5, 12.2, 0, H_TERAS, 'Tiang 3m', 0.45, 0);
 
 // Kontrol Kamera Orbit & Zoom
 let th = -0.5, ph = 0.9, d = 24;
@@ -289,6 +381,8 @@ el.addEventListener('wheel', e => {
 p.onclick = () => { th = -0.5; ph = 0.9; d = 24; upd(); };
 r.onclick = () => { roofs.visible = !roofs.visible; r.textContent = roofs.visible ? 'Hilangkan atap' : 'Aktifkan atap'; };
 t.onclick = () => { th = 0; ph = 1.55; d = 24; upd(); };
+m.onclick = () => { dims.visible = !dims.visible; m.textContent = dims.visible ? 'Sembunyikan garis ukur' : 'Tampilkan garis ukur'; };
+
 addEventListener('resize', () => {
   cam.aspect = innerWidth / innerHeight;
   cam.updateProjectionMatrix();
