@@ -729,7 +729,7 @@ t.onclick = () => {
   cam.fov = 50; cam.updateProjectionMatrix();
   th = 0; ph = 1.55; d = 24; upd();
 };
-m.onclick = () => { dims.visible = !dims.visible; m.textContent = dims.visible ? 'Sembunyikan garis ukur' : 'Tampilkan garis ukur'; };
+m.onclick = () => { dims.visible = !dims.visible; m.textContent = dims.visible ? 'Sembunyikan garis' : 'Tampilkan garis'; };
 v.onclick = () => togglePOV();
 
 addEventListener('resize', () => {
