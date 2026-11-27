@@ -27,7 +27,7 @@ const sun = new T.DirectionalLight(0xffffff, 0.6);
 sun.position.set(-10, 20, 25);
 scene.add(sun);
 
-// Material sesuai permintaan: pintu coklat kayu, jendela biru kaca, atap abu-abu asbes
+// Material: pintu coklat kayu, jendela biru kaca, atap abu-abu asbes
 const wallM = new T.MeshLambertMaterial({ color: 0xf0f0f0 });
 const slabM = new T.MeshLambertMaterial({ color: 0xcfcfcf });
 const doorM = new T.MeshLambertMaterial({ color: 0x7a441e });
@@ -82,20 +82,33 @@ function D(hx, hz, w, deg) {
 
 // =========================================================================
 // KOORDINAT PRESISI SESUAI HITUNGAN DENAH (dalam satuan meter):
-// Sumbu X:
-//   x = 0.00  : Dinding paling kiri (Dapur)
-//   x = 3.00  : Dinding kiri bangunan utama (offset kiri 3m)
+// 
+// Sumbu X (Kiri -> Kanan, total lebar belakang = 11.00m):
+//   x = 0.00  : Dinding paling kiri (Dapur & Perkakas)
+//   x = 3.00  : Dinding kiri bangunan utama (offset kiri dapur = 3.00m)
 //   x = 6.25  : Dinding tengah pembatas (3.00 + 3.25m)
+//   x = 8.80  : Dinding kiri Kamar Mandi (lebar kamar mandi = 2.20m)
 //   x = 9.50  : Dinding kanan bangunan utama (3.00 + 6.50m)
-//   x = 11.00 : Dinding paling kanan (9.50 + 1.50m, total lebar 11m)
-// Sumbu Z:
-//   z = 0.00  : Dinding paling belakang
-//   z = 3.00  : Batas dapur & bangunan utama (lebar 3m)
-//   z = 6.00  : Dinding bawah Kamar Tidur kanan (3.00 + 3.00m)
-//   z = 7.20  : Dinding atas Kamar Tidur kiri (3.00 + 4.20m)
-//   z = 9.70  : Dinding depan Ruang Tamu (3.00 + 6.70m)
-//   z = 10.20 : Dinding depan Kamar Tidur kiri (3.00 + 7.20m, selisih 50cm)
+//   x = 11.00 : Dinding paling kanan (9.50 + 1.50m)
+// 
+// Sumbu Z (Belakang -> Depan, total panjang = 12.20m):
+//   z = 0.00  : Dinding paling belakang (Dapur & Kamar Mandi)
+//   z = 1.50  : Dinding depan Kamar Mandi (dalam kamar mandi = 1.50m)
+//   z = 3.00  : Batas Dapur & bangunan utama (lebar dapur = 3.00m)
+//   z = 6.00  : Dinding depan Kamar Tidur kanan (3.00 + 3.00m)
+//   z = 7.20  : Dinding belakang Kamar Tidur kiri (3.00 + 4.20m Ruang Santai)
+//   z = 9.70  : Dinding depan Ruang Tamu (6.00 + 3.70m = 3.00 + 6.70m)
+//   z = 10.20 : Dinding depan Kamar Tidur kiri (3.00 + 7.20m, selisih 0.50m / 50cm)
 //   z = 12.20 : Batas depan Teras (9.70 + 2.50m = 10.20 + 2.00m = 12.20m)
+// 
+// Sumbu Y (Bawah -> Atas / Elevasi):
+//   y = -0.30 : Dasar pondasi / sloof
+//   y = 0.00  : Permukaan lantai bangunan
+//   y = 0.90  : Ambang bawah jendela
+//   y = 2.00  : Ambang atas jendela
+//   y = 2.10  : Ambang bawah gawang / balok atas pintu
+//   y = 3.00  : Tinggi dinding standar / ring balok (H = 3.00m)
+//   y = 4.90  : Puncak bubungan atap pelana utama (3.00 + 1.90m)
 // =========================================================================
 
 // 1. Pondasi / lantai dasar presisi
@@ -112,17 +125,15 @@ W(0, 3.0, 1.85, 3.0);
 W(2.75, 3.0, 9.75, 3.0);
 W(10.65, 3.0, 11.0, 3.0);
 
-// Sekat Kamar Mandi di pojok kanan atas (lebar ~2.2m, dalam ~1.5m)
+// Sekat Kamar Mandi di pojok kanan atas
 W(8.8, 1.5, 11.0, 1.5);
 W(8.8, 0.9, 8.8, 1.5);
 
 // 3. Dinding Bangunan Utama (lebar 6.5m: x=3.0 s/d x=9.5)
 // Dinding kiri bangunan utama (z=3.0 s/d z=10.20 = 7.2m)
-// Ruang Santai (z=3.0 s/d z=7.20 = 4.2m) memiliki 2 jendela kiri
 W(3.0, 3.9, 3.0, 10.2, [[4.7, 5.25], [5.65, 6.2]]);
 
 // Dinding kanan bangunan utama (z=3.0 s/d z=9.70 = 6.7m)
-// Kamar Tidur kanan (z=3.0 s/d z=6.0 = 3.0m) memiliki 1 jendela kanan
 W(9.5, 3.0, 9.5, 9.7, [[4.85, 5.45]]);
 
 // Dinding tengah vertikal (x = 6.25)
@@ -142,28 +153,29 @@ W(3.0, 10.2, 6.25, 10.2, [[3.75, 4.35], [4.95, 5.55]]);
 W(6.25, 9.7, 6.45, 9.7);
 W(7.35, 9.7, 9.5, 9.7, [[7.8, 8.4], [8.65, 9.25]]);
 
-// 4. Balok dinding di atas bukaan pintu (tinggi 2.1m s/d 3.0m)
+// 4. Balok gawang di atas bukaan pintu & penghubung ruangan (tinggi 2.1m s/d 3.0m)
 [
-  [1.85, 3.0, 2.75, 3.0],     // Pintu Dapur kiri
-  [9.75, 3.0, 10.65, 3.0],    // Pintu Dapur kanan
-  [8.8, 0.0, 8.8, 0.9],       // Pintu Kamar Mandi
-  [3.0, 3.0, 3.0, 3.9],       // Pintu Ruang Santai
-  [6.25, 4.9, 6.25, 5.8],     // Pintu Kamar Tidur kanan
-  [5.05, 7.2, 5.95, 7.2],     // Pintu Kamar Tidur kiri
-  [6.45, 9.7, 7.35, 9.7]      // Pintu Utama Ruang Tamu
+  [1.85, 3.0, 2.75, 3.0],     // Atas pintu Dapur kiri
+  [9.75, 3.0, 10.65, 3.0],    // Atas pintu Dapur kanan
+  [8.8, 0.0, 8.8, 0.9],       // Atas pintu Kamar Mandi
+  [3.0, 3.0, 3.0, 3.9],       // Atas pintu Ruang Santai
+  [6.25, 4.9, 6.25, 5.8],     // Atas pintu Kamar Tidur kanan
+  [6.25, 6.0, 6.25, 7.2],     // Gawang penghubung Ruang Tamu & Ruang Santai (lebar 1.20m)
+  [5.05, 7.2, 5.95, 7.2],     // Atas pintu Kamar Tidur kiri
+  [6.45, 9.7, 7.35, 9.7]      // Atas pintu Utama Ruang Tamu
 ].forEach(a => W(a[0], a[1], a[2], a[3], [], H, 2.1));
 
 // 5. Tiang Teras depan (z = 12.20m) menumpu pas di bawah kanopi
 [3.0, 6.125, 9.25].forEach(x => box(x, 0, 11.95, x + 0.25, 2.38, 12.2, wallM, 1));
 
 // 6. Daun Pintu (coklat kayu) sesuai arah bukaan pada denah
-D(2.75, 3.0, 0.9, -150);      // Pintu Dapur kiri (buka ke dalam kiri)
-D(10.65, 3.0, 0.9, -150);     // Pintu Dapur kanan (buka ke dalam kiri)
-D(8.8, 0.9, 0.85, -32);       // Pintu Kamar Mandi (buka ke dalam kanan)
-D(3.0, 3.9, 0.9, 28);         // Pintu Ruang Santai (buka ke dalam)
-D(6.25, 4.9, 0.9, 28);        // Pintu Kamar Tidur kanan (buka ke dalam)
-D(5.05, 7.2, 0.9, 28);        // Pintu Kamar Tidur kiri (buka ke dalam)
-D(7.35, 9.7, 0.9, -152);      // Pintu Utama Ruang Tamu (buka ke dalam kiri)
+D(2.75, 3.0, 0.9, -150);      // Pintu Dapur kiri
+D(10.65, 3.0, 0.9, -150);     // Pintu Dapur kanan
+D(8.8, 0.9, 0.85, -32);       // Pintu Kamar Mandi
+D(3.0, 3.9, 0.9, 28);         // Pintu Ruang Santai
+D(6.25, 4.9, 0.9, 28);        // Pintu Kamar Tidur kanan
+D(5.05, 7.2, 0.9, 28);        // Pintu Kamar Tidur kiri
+D(7.35, 9.7, 0.9, -152);      // Pintu Utama Ruang Tamu
 
 // 7. Atap Pelana Utama + Sayap Dapur + Kanopi Teras (warna abu-abu asbes)
 const roofs = new T.Group();
