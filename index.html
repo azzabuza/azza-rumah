@@ -34,31 +34,61 @@ ren.setSize(innerWidth, innerHeight);
 ren.setPixelRatio(Math.min(devicePixelRatio, 2));
 document.body.appendChild(ren.domElement);
 
-scene.add(new T.HemisphereLight(0xffffff, 0x999999, 0.85));
-const sun = new T.DirectionalLight(0xffffff, 0.6);
+scene.add(new T.HemisphereLight(0xffffff, 0x8a8a8a, 0.88));
+const sun = new T.DirectionalLight(0xffffff, 0.62);
 sun.position.set(-10, 20, 25);
 scene.add(sun);
 
-// Material: pintu coklat kayu, jendela biru kaca, atap abu-abu asbes
-const wallM = new T.MeshLambertMaterial({ color: 0xf0f0f0 });
-const slabM = new T.MeshLambertMaterial({ color: 0xcfcfcf });
-const doorM = new T.MeshLambertMaterial({ color: 0x7a441e });
-const winM  = new T.MeshLambertMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.72 });
-const roofM = new T.MeshLambertMaterial({ color: 0x7c8288 });
-const edgeM = new T.LineBasicMaterial({ color: 0x000000 });
+// Tekstur petak keramik lantai (60x60cm) agar kontras terhadap dinding putih
+function makeFloorTexture() {
+  const cv = document.createElement('canvas');
+  cv.width = 256;
+  cv.height = 256;
+  const g = cv.getContext('2d');
+  g.fillStyle = '#ddd7ce';
+  g.fillRect(0, 0, 256, 256);
+  // Variasi lembut permukaan ubin
+  g.fillStyle = '#e4dfd7';
+  g.fillRect(2, 2, 124, 124);
+  g.fillRect(130, 130, 124, 124);
+  // Garis nat keramik
+  g.strokeStyle = '#9e978d';
+  g.lineWidth = 3;
+  g.strokeRect(0, 0, 256, 256);
+  g.beginPath();
+  g.moveTo(128, 0); g.lineTo(128, 256);
+  g.moveTo(0, 128); g.lineTo(256, 128);
+  g.stroke();
 
-function box(x0, y0, z0, x1, y1, z1, m, edge) {
+  const tex = new T.CanvasTexture(cv);
+  tex.wrapS = T.RepeatWrapping;
+  tex.wrapT = T.RepeatWrapping;
+  tex.repeat.set(9, 10);
+  return tex;
+}
+
+// Material: dinding putih hangat, lantai keramik, plint abu gelap, pintu coklat kayu, jendela biru kaca, atap asbes
+const wallM    = new T.MeshLambertMaterial({ color: 0xf5f5f3 });
+const plinthM  = new T.MeshLambertMaterial({ color: 0x57534e });
+const slabM    = new T.MeshLambertMaterial({ map: makeFloorTexture() });
+const ceilingM = new T.MeshLambertMaterial({ color: 0xffffff, side: T.DoubleSide });
+const doorM    = new T.MeshLambertMaterial({ color: 0x7a441e });
+const winM     = new T.MeshLambertMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.72 });
+const roofM    = new T.MeshLambertMaterial({ color: 0x7c8288 });
+const edgeM    = new T.LineBasicMaterial({ color: 0x000000 });
+
+function box(x0, y0, z0, x1, y1, z1, m, edge, target = scene) {
   const b = new T.Mesh(new T.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), m);
   b.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
-  scene.add(b);
+  target.add(b);
   if (edge) {
     const l = new T.LineSegments(new T.EdgesGeometry(b.geometry), edgeM);
     l.position.copy(b.position);
-    scene.add(l);
+    target.add(l);
   }
 }
 
-// Fungsi dinding berbasis koordinat meter presisi (bukan skala gambar)
+// Fungsi dinding berbasis koordinat meter presisi + otomatis menambah plint lantai & lis plafon
 function W(x1, z1, x2, z2, ops = [], h = H, y0 = 0) {
   const hz = Math.abs(z1 - z2) < 1e-6;
   const a0 = hz ? Math.min(x1, x2) : Math.min(z1, z2);
@@ -68,6 +98,20 @@ function W(x1, z1, x2, z2, ops = [], h = H, y0 = 0) {
     if (e - s < 0.01) return;
     hz ? box(s - TH / 2, b, c - TH / 2, e + TH / 2, t, c + TH / 2, m, 1)
        : box(c - TH / 2, b, s - TH / 2, c + TH / 2, t, e + TH / 2, m, 1);
+
+    // Tambah plint lantai (tinggi 10cm, menonjol 1cm) pada dinding yang menyentuh lantai (b === 0)
+    if (b === 0 && t > 0.12) {
+      const pT = TH / 2 + 0.012;
+      hz ? box(s - TH / 2, 0.002, c - pT, e + TH / 2, 0.10, c + pT, plinthM, 0)
+         : box(c - pT, 0.002, s - TH / 2, c + pT, 0.10, e + TH / 2, plinthM, 0);
+    }
+
+    // Tambah lis plafon (tinggi 7cm di puncak dinding t === H) agar batas dinding-atap tegas di POV
+    if (Math.abs(t - H) < 0.01) {
+      const cT = TH / 2 + 0.01;
+      hz ? box(s - TH / 2, H - 0.07, c - cT, e + TH / 2, H, c + cT, plinthM, 0)
+         : box(c - cT, H - 0.07, s - TH / 2, c + cT, H, e + TH / 2, plinthM, 0);
+    }
   };
   ops = ops.map(o => [Math.min(o[0], o[1]), Math.max(o[0], o[1])]).sort((a, b) => a[0] - b[0]);
   let p = a0;
@@ -115,16 +159,17 @@ function D(hx, hz, w, deg) {
 // 
 // Sumbu Y (Bawah -> Atas / Elevasi):
 //   y = -0.30 : Dasar pondasi / sloof
-//   y = 0.00  : Permukaan lantai bangunan
+//   y = 0.00  : Permukaan lantai keramik bangunan
+//   y = 0.10  : Tinggi lis plint kaki dinding
 //   y = 0.90  : Ambang bawah jendela
 //   y = 2.00  : Ambang atas jendela
 //   y = 2.10  : Ambang bawah gawang / balok atas pintu
 //   y = 3.00  : Tinggi tiang teras (H_TERAS = 3.00m)
-//   y = 3.50  : Tinggi dinding bangunan utama & dapur (H = 3.50m)
+//   y = 3.50  : Tinggi dinding & plafon bangunan (H = 3.50m)
 //   y = 5.40  : Puncak bubungan atap pelana utama (3.50 + 1.90m)
 // =========================================================================
 
-// 1. Pondasi / lantai dasar presisi
+// 1. Pondasi / lantai dasar bertekstur keramik
 box(0, -0.3, 0, 11.0, 0, 3.0, slabM, 1);
 box(3.0, -0.3, 3.0, 9.5, 0, 12.2, slabM, 1);
 
@@ -176,7 +221,11 @@ W(7.35, 9.7, 9.5, 9.7, [[7.8, 8.4], [8.65, 9.25]]);
 ].forEach(a => W(a[0], a[1], a[2], a[3], [], H, 2.1));
 
 // 5. Tiang Teras depan (z = 12.20m, tinggi 3.0m) menumpu pas di bawah kanopi
-[3.0, 6.125, 9.25].forEach(x => box(x, 0, 11.95, x + 0.25, H_TERAS, 12.2, wallM, 1));
+[3.0, 6.125, 9.25].forEach(x => {
+  box(x, 0, 11.95, x + 0.25, H_TERAS, 12.2, wallM, 1);
+  // Lis kaki tiang teras agar batas tiang dan lantai teras jelas
+  box(x - 0.01, 0.002, 11.94, x + 0.26, 0.10, 12.21, plinthM, 0);
+});
 
 // 6. Daun Pintu (coklat kayu) sesuai arah bukaan pada denah
 D(2.75, 3.0, 0.9, -150);
@@ -187,9 +236,14 @@ D(6.25, 4.9, 0.9, 28);
 D(5.05, 7.2, 0.9, 28);
 D(7.35, 9.7, 0.9, -152);
 
-// 7. Atap Pelana Utama + Sayap Dapur + Kanopi Teras (warna abu-abu asbes)
+// 7. Atap Pelana Utama + Sayap Dapur + Kanopi Teras + Plafon Interior
 const roofs = new T.Group();
 scene.add(roofs);
+
+// Plafon datar pada elevasi H=3.50m (ikut tersembunyi jika tombol "Hilangkan atap" ditekan)
+box(0.0, H - 0.02, 0.0, 11.0, H, 3.0, ceilingM, 0, roofs);
+box(3.0, H - 0.02, 3.0, 6.25, H, 10.2, ceilingM, 0, roofs);
+box(6.25, H - 0.02, 3.0, 9.5, H, 9.7, ceilingM, 0, roofs);
 
 function gable(x0, z0, x1, z1, alongX, rh, o) {
   const w = (alongX ? z1 - z0 : x1 - x0) + 2 * o;
@@ -369,7 +423,6 @@ const povGroup = new T.Group();
 povGroup.visible = false;
 scene.add(povGroup);
 
-// Koordinat titik tengah presisi tiap ruangan (x, z) & arah hadap awal (yaw)
 const ROOMS = [
   { name: 'Dapur & Perkakas', x: 4.40,  z: 1.50,  yaw: 0 },
   { name: 'Kamar Mandi',      x: 9.90,  z: 0.75,  yaw: -Math.PI / 2 },
@@ -389,7 +442,6 @@ function makeHotspotTexture(label) {
   cv.width = 320;
   cv.height = 140;
   const g = cv.getContext('2d');
-  // Lingkaran ikon 360°
   g.fillStyle = 'rgba(2, 132, 199, 0.94)';
   g.strokeStyle = '#ffffff';
   g.lineWidth = 6;
@@ -402,7 +454,6 @@ function makeHotspotTexture(label) {
   g.textAlign = 'center';
   g.textBaseline = 'middle';
   g.fillText('360°', 160, 45);
-  // Label nama ruangan
   g.fillStyle = 'rgba(15, 23, 42, 0.88)';
   g.beginPath();
   g.roundRect(24, 86, 272, 42, 12);
@@ -414,7 +465,6 @@ function makeHotspotTexture(label) {
 }
 
 ROOMS.forEach((rm, idx) => {
-  // Penanda lantai + sprite 360° tepat di titik tengah ruangan
   const ring = new T.Mesh(
     new T.RingGeometry(0.18, 0.34, 32),
     new T.MeshBasicMaterial({ color: 0x0284c7, side: T.DoubleSide })
@@ -434,7 +484,6 @@ ROOMS.forEach((rm, idx) => {
   povGroup.add(sp);
   povHotspots.push(ring, sp);
 
-  // Tombol navigasi cepat antar ruangan saat mode POV aktif
   const btn = document.createElement('button');
   btn.textContent = rm.name;
   btn.onclick = () => enterRoomPOV(idx);
@@ -456,7 +505,6 @@ function enterRoomPOV(idx) {
   povFov = 75;
   cam.fov = povFov;
   cam.updateProjectionMatrix();
-  // Sembunyikan hotspot ruangan yang sedang dimasuki agar tidak menghalangi pandangan
   povHotspots.forEach(obj => {
     obj.visible = obj.userData.roomIndex !== idx;
   });
@@ -478,7 +526,6 @@ function togglePOV(forceState) {
     povHotspots.forEach(obj => obj.visible = true);
     [...povNav.children].forEach(b => b.classList.remove('active'));
     povHint.textContent = 'Klik titik 360° di tengah ruangan untuk masuk ke dalam';
-    // Otomatis aktifkan atap agar interior tertutup realistis saat dilihat dari dalam
     if (!roofs.visible) {
       roofs.visible = true;
       r.textContent = 'Hilangkan atap';
@@ -495,7 +542,7 @@ function togglePOV(forceState) {
 function upd() {
   if (povMode && activeRoom >= 0) {
     const rm = ROOMS[activeRoom];
-    const eyeY = 1.65; // Ketinggian mata manusia berdiri (1.65m)
+    const eyeY = 1.65;
     cam.position.set(rm.x, eyeY, rm.z);
     const lookX = rm.x + Math.sin(povYaw) * Math.cos(povPitch);
     const lookY = eyeY + Math.sin(povPitch);
@@ -552,7 +599,6 @@ el.addEventListener('pointermove', e => {
 
   if (pts.size === 1) {
     if (povMode && activeRoom >= 0) {
-      // Putar pandangan 360° dari titik tengah ruangan
       povYaw += dx * 0.0055;
       povPitch = Math.max(-1.45, Math.min(1.45, povPitch + dy * 0.0055));
     } else {
