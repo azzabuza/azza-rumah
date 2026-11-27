@@ -6,105 +6,284 @@
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1c1c1c;--fg:#eee;--btn:#333}}
 html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,sans-serif;overflow:hidden}
 #ui{position:fixed;left:10px;top:calc(10px + env(safe-area-inset-top,0px));z-index:5;display:flex;gap:6px;flex-wrap:wrap}
-button{background:var(--btn);color:var(--fg);border:1px solid #8886;border-radius:8px;padding:8px 12px;font-size:14px}
+button{background:var(--btn);color:var(--fg);border:1px solid #8886;border-radius:8px;padding:8px 12px;font-size:14px;cursor:pointer}
 canvas{display:block;touch-action:none}
 </style></head><body>
 <div id="ui"><button id="p">Perspektif</button><button id="t">Tampak atas</button><button id="r">Hilangkan atap</button></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-const T=THREE,H=3,TH=.15;
-const scene=new T.Scene(),dark=matchMedia('(prefers-color-scheme:dark)').matches;
-scene.background=new T.Color(dark?0x1c1c1c:0xf4f4f4);
-const cam=new T.PerspectiveCamera(50,innerWidth/innerHeight,.1,200);
-const ren=new T.WebGLRenderer({antialias:true});ren.setSize(innerWidth,innerHeight);ren.setPixelRatio(Math.min(devicePixelRatio,2));
-document.body.appendChild(ren.domElement);
-scene.add(new T.HemisphereLight(0xffffff,0x999999,.85));
-const sun=new T.DirectionalLight(0xffffff,.6);sun.position.set(-10,20,25);scene.add(sun);
-const M=c=>new T.MeshLambertMaterial({color:c});
-const wallM=M(0xf0f0f0),slabM=M(0xcfcfcf),doorM=M(0x2200aa),winM=M(0x00c060);
-const edgeM=new T.LineBasicMaterial({color:0x000000});
-function box(x0,y0,z0,x1,y1,z1,m,edge){const b=new T.Mesh(new T.BoxGeometry(x1-x0,y1-y0,z1-z0),m);
- b.position.set((x0+x1)/2,(y0+y1)/2,(z0+z1)/2);scene.add(b);
- if(edge){const l=new T.LineSegments(new T.EdgesGeometry(b.geometry),edgeM);l.position.copy(b.position);scene.add(l)}}
-// pixel (gambar) -> meter, disesuaikan dengan ukuran di denah
-function ip(v,a){for(let i=0;i<a.length-1;i++){if(v<=a[i+1][0]||i==a.length-2){const[p,q]=a[i],[r,s]=a[i+1];return q+(v-p)/(r-p)*(s-q)}}}
-const X=v=>ip(v,[[131,0],[462,3],[795,6.25],[1125,9.5],[1276,11]]);
-const Z=v=>ip(v,[[425,0],[710,3],[1031,6.15],[1127,7.1],[1376,9.5],[1443,10],[1715,12]]);
-function W(x1,y1,x2,y2,ops=[],h=H,y0=0){
- const hz=y1==y2,cv=hz?X:Z,a0=cv(hz?x1:y1),a1=cv(hz?x2:y2),c=hz?Z(y1):X(x1);
- const B=(s,e,b,t,m)=>{if(e-s<.01)return;hz?box(s-TH/2,b,c-TH/2,e+TH/2,t,c+TH/2,m,1):box(c-TH/2,b,s-TH/2,c+TH/2,t,e+TH/2,m,1)};
- ops=ops.map(o=>[cv(o[0]),cv(o[1])]).sort((a,b)=>a[0]-b[0]);let p=a0;
- for(const[s,e]of ops){B(p,s,y0,h,wallM);B(s,e,0,.9,wallM);B(s,e,2,h,wallM);
-  hz?box(s,.9,c-.025,e,2,c+.025,winM):box(c-.025,.9,s,c+.025,2,e,winM);p=e}
- B(p,a1,y0,h,wallM)}
-function D(px1,py1,px2,py2){const ax=X(px1),az=Z(py1),bx=X(px2),bz=Z(py2),L=Math.hypot(bx-ax,bz-az);
- const m=new T.Mesh(new T.BoxGeometry(L,2.05,.05),doorM);m.position.set((ax+bx)/2,1.025,(az+bz)/2);
- m.rotation.y=-Math.atan2(bz-az,bx-ax);scene.add(m)}
-function lab(px,py,txt,w){const cv=document.createElement('canvas');cv.width=512;cv.height=192;const g=cv.getContext('2d');
- g.fillStyle='#111';g.font='bold 62px sans-serif';g.textAlign='center';
- txt.split('|').forEach((l,i,a)=>g.fillText(l,256,100+(i-(a.length-1)/2)*70));
- const s=new T.Mesh(new T.PlaneGeometry(w,w*.375),new T.MeshBasicMaterial({map:new T.CanvasTexture(cv),transparent:true}));
- s.rotation.x=-Math.PI/2;s.position.set(X(px),.02,Z(py));scene.add(s)}
-// pondasi / lantai dasar
-box(0,-.3,0,11,0,3,slabM,1);box(3,-.3,3,9.5,0,12,slabM,1);
-// dinding tetap (rata tinggi H=3m)
-W(131,425,1276,425);W(131,425,131,710);W(1276,425,1276,710);
-W(131,710,365,710);W(462,710,1153,710);W(1250,710,1276,710);
-W(1040,573,1276,573);W(1040,512,1040,573);
-W(462,800,462,1443,[[890,940],[975,1025]]);
-W(1125,710,1125,1376,[[920,970]]);
-W(795,710,795,905);W(795,992,795,1031);W(795,1031,1125,1031);
-W(462,1127,680,1127);W(768,1127,795,1127);W(795,1127,795,1443);
-W(462,1443,795,1443,[[538,592],[655,709]]);
-W(795,1376,818,1376);W(908,1376,1125,1376,[[960,1014],[1034,1088]]);
-// bagian atas bukaan pintu
-[[365,710,462,710],[1153,710,1250,710],[795,905,795,992],[680,1127,768,1127],[818,1376,908,1376],[462,710,462,800],[1040,425,1040,512]]
- .forEach(a=>W(a[0],a[1],a[2],a[3],[],H,2.1));
-// teras: 3 tiang teras di bagian depan (menumpu pas di bawah kemiringan kanopi)
-[3,6.125,9.25].forEach(x=>box(x,0,11.75,x+.25,2.38,12,wallM,1));
-// pintu (garis biru)
-D(377,705,312,661);D(1248,705,1184,662);D(1043,505,1107,548);D(462,793,541,830);
-D(792,906,873,945);D(680,1125,762,1163);D(826,1337,908,1377);
-// nama ruang
+const T = THREE, H = 3, TH = 0.15;
+const scene = new T.Scene(), dark = matchMedia('(prefers-color-scheme:dark)').matches;
+scene.background = new T.Color(dark ? 0x1c1c1c : 0xf4f4f4);
 
-// atap pelana utama + atap dapur (kemiringan depan-belakang) + kanopi teras
-const roofs=new T.Group(),roofM=M(0xb5472f);scene.add(roofs);
-function gable(x0,z0,x1,z1,alongX,rh,o){const w=(alongX?z1-z0:x1-x0)+2*o,L=(alongX?x1-x0:z1-z0)+2*o;
- const s=new T.Shape();s.moveTo(-w/2,0);s.lineTo(w/2,0);s.lineTo(0,rh);s.closePath();
- const m=new T.Mesh(new T.ExtrudeGeometry(s,{depth:L,bevelEnabled:false}),roofM);
- if(alongX){m.rotation.y=Math.PI/2;m.position.set(x0-o,H,(z0+z1)/2)}else m.position.set((x0+x1)/2,H,z0-o);
- roofs.add(m);const l=new T.LineSegments(new T.EdgesGeometry(m.geometry),edgeM);l.rotation.copy(m.rotation);l.position.copy(m.position);roofs.add(l)}
-// atap utama kemiringan depan-belakang (alongX = true)
-gable(3,0,9.5,10,true,1.9,.4);
-// atap dapur kiri & kanan (kemiringan depan-belakang menyambung atap utama)
-function wingFB(x0,x1){const s=new T.Shape();
- s.moveTo(0.4,0);s.lineTo(-3.4,0);s.lineTo(-3.4,1.337);s.lineTo(-1.5,0.67);s.closePath();
- const m=new T.Mesh(new T.ExtrudeGeometry(s,{depth:x1-x0,bevelEnabled:false}),roofM);
- m.rotation.y=Math.PI/2;m.position.set(x0,H,0);roofs.add(m);
- const l=new T.LineSegments(new T.EdgesGeometry(m.geometry),edgeM);l.rotation.copy(m.rotation);l.position.copy(m.position);roofs.add(l)}
-wingFB(-.4,2.6);wingFB(9.9,11.4);
-// kanopi teras miring (dimulai dari bawah atap utama y=2.98 turun ke depan y=2.23)
-const cs=new T.Shape();cs.moveTo(-9.5,2.86);cs.lineTo(-12.4,2.23);cs.lineTo(-12.4,2.35);cs.lineTo(-9.5,2.98);cs.closePath();
-const cm=new T.Mesh(new T.ExtrudeGeometry(cs,{depth:6.7,bevelEnabled:false}),roofM);
-cm.rotation.y=Math.PI/2;cm.position.set(2.9,0,0);roofs.add(cm);
-const cl=new T.LineSegments(new T.EdgesGeometry(cm.geometry),edgeM);
-cl.rotation.copy(cm.rotation);cl.position.copy(cm.position);roofs.add(cl);
-// kamera
-let th=-.5,ph=.9,d=24;const tg=new T.Vector3(5.5,0,6);
-function upd(){cam.position.set(tg.x+d*Math.sin(th)*Math.cos(ph),d*Math.sin(ph),tg.z+d*Math.cos(th)*Math.cos(ph));cam.lookAt(tg)}
+const cam = new T.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 200);
+const ren = new T.WebGLRenderer({ antialias: true });
+ren.setSize(innerWidth, innerHeight);
+ren.setPixelRatio(Math.min(devicePixelRatio, 2));
+document.body.appendChild(ren.domElement);
+
+scene.add(new T.HemisphereLight(0xffffff, 0x999999, 0.85));
+const sun = new T.DirectionalLight(0xffffff, 0.6);
+sun.position.set(-10, 20, 25);
+scene.add(sun);
+
+// Material sesuai permintaan: pintu coklat kayu, jendela biru kaca, atap abu-abu asbes
+const wallM = new T.MeshLambertMaterial({ color: 0xf0f0f0 });
+const slabM = new T.MeshLambertMaterial({ color: 0xcfcfcf });
+const doorM = new T.MeshLambertMaterial({ color: 0x7a441e });
+const winM  = new T.MeshLambertMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.72 });
+const roofM = new T.MeshLambertMaterial({ color: 0x7c8288 });
+const edgeM = new T.LineBasicMaterial({ color: 0x000000 });
+
+function box(x0, y0, z0, x1, y1, z1, m, edge) {
+  const b = new T.Mesh(new T.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), m);
+  b.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
+  scene.add(b);
+  if (edge) {
+    const l = new T.LineSegments(new T.EdgesGeometry(b.geometry), edgeM);
+    l.position.copy(b.position);
+    scene.add(l);
+  }
+}
+
+// Fungsi dinding berbasis koordinat meter presisi (bukan skala gambar)
+function W(x1, z1, x2, z2, ops = [], h = H, y0 = 0) {
+  const hz = Math.abs(z1 - z2) < 1e-6;
+  const a0 = hz ? Math.min(x1, x2) : Math.min(z1, z2);
+  const a1 = hz ? Math.max(x1, x2) : Math.max(z1, z2);
+  const c  = hz ? z1 : x1;
+  const B  = (s, e, b, t, m) => {
+    if (e - s < 0.01) return;
+    hz ? box(s - TH / 2, b, c - TH / 2, e + TH / 2, t, c + TH / 2, m, 1)
+       : box(c - TH / 2, b, s - TH / 2, c + TH / 2, t, e + TH / 2, m, 1);
+  };
+  ops = ops.map(o => [Math.min(o[0], o[1]), Math.max(o[0], o[1])]).sort((a, b) => a[0] - b[0]);
+  let p = a0;
+  for (const [s, e] of ops) {
+    B(p, s, y0, h, wallM);
+    B(s, e, 0, 0.9, wallM);
+    B(s, e, 2.0, h, wallM);
+    hz ? box(s, 0.9, c - 0.025, e, 2.0, c + 0.025, winM)
+       : box(c - 0.025, 0.9, s, c + 0.025, 2.0, e, winM);
+    p = e;
+  }
+  B(p, a1, y0, h, wallM);
+}
+
+// Fungsi daun pintu terbuka berdasarkan titik engsel & sudut (meter)
+function D(hx, hz, w, deg) {
+  const rad = deg * Math.PI / 180;
+  const dx = Math.cos(rad) * w, dz = Math.sin(rad) * w;
+  const m = new T.Mesh(new T.BoxGeometry(w, 2.05, 0.05), doorM);
+  m.position.set(hx + dx / 2, 1.025, hz + dz / 2);
+  m.rotation.y = -rad;
+  scene.add(m);
+}
+
+// =========================================================================
+// KOORDINAT PRESISI SESUAI HITUNGAN DENAH (dalam satuan meter):
+// Sumbu X:
+//   x = 0.00  : Dinding paling kiri (Dapur)
+//   x = 3.00  : Dinding kiri bangunan utama (offset kiri 3m)
+//   x = 6.25  : Dinding tengah pembatas (3.00 + 3.25m)
+//   x = 9.50  : Dinding kanan bangunan utama (3.00 + 6.50m)
+//   x = 11.00 : Dinding paling kanan (9.50 + 1.50m, total lebar 11m)
+// Sumbu Z:
+//   z = 0.00  : Dinding paling belakang
+//   z = 3.00  : Batas dapur & bangunan utama (lebar 3m)
+//   z = 6.00  : Dinding bawah Kamar Tidur kanan (3.00 + 3.00m)
+//   z = 7.20  : Dinding atas Kamar Tidur kiri (3.00 + 4.20m)
+//   z = 9.70  : Dinding depan Ruang Tamu (3.00 + 6.70m)
+//   z = 10.20 : Dinding depan Kamar Tidur kiri (3.00 + 7.20m, selisih 50cm)
+//   z = 12.20 : Batas depan Teras (9.70 + 2.50m = 10.20 + 2.00m = 12.20m)
+// =========================================================================
+
+// 1. Pondasi / lantai dasar presisi
+box(0, -0.3, 0, 11.0, 0, 3.0, slabM, 1);
+box(3.0, -0.3, 3.0, 9.5, 0, 12.2, slabM, 1);
+
+// 2. Dinding Dapur & Perkakas + Kamar Mandi (11m x 3m)
+W(0, 0, 11.0, 0);          // Dinding belakang 11m
+W(0, 0, 0, 3.0);           // Dinding kiri 3m
+W(11.0, 0, 11.0, 3.0);     // Dinding kanan 3m
+
+// Dinding bawah dapur (kiri 3m dengan bukaan pintu 0.9m, kanan 1.5m dengan bukaan pintu 0.9m)
+W(0, 3.0, 1.85, 3.0);
+W(2.75, 3.0, 9.75, 3.0);
+W(10.65, 3.0, 11.0, 3.0);
+
+// Sekat Kamar Mandi di pojok kanan atas (lebar ~2.2m, dalam ~1.5m)
+W(8.8, 1.5, 11.0, 1.5);
+W(8.8, 0.9, 8.8, 1.5);
+
+// 3. Dinding Bangunan Utama (lebar 6.5m: x=3.0 s/d x=9.5)
+// Dinding kiri bangunan utama (z=3.0 s/d z=10.20 = 7.2m)
+// Ruang Santai (z=3.0 s/d z=7.20 = 4.2m) memiliki 2 jendela kiri
+W(3.0, 3.9, 3.0, 10.2, [[4.7, 5.25], [5.65, 6.2]]);
+
+// Dinding kanan bangunan utama (z=3.0 s/d z=9.70 = 6.7m)
+// Kamar Tidur kanan (z=3.0 s/d z=6.0 = 3.0m) memiliki 1 jendela kanan
+W(9.5, 3.0, 9.5, 9.7, [[4.85, 5.45]]);
+
+// Dinding tengah vertikal (x = 6.25)
+W(6.25, 3.0, 6.25, 4.9);     // Atas pintu Kamar Tidur kanan
+W(6.25, 5.8, 6.25, 6.0);     // Bawah pintu Kamar Tidur kanan
+W(6.25, 7.2, 6.25, 10.2);    // Pembatas Kamar Tidur kiri & Ruang Tamu (3.0m)
+
+// Dinding horizontal pembatas ruangan
+W(6.25, 6.0, 9.5, 6.0);      // Bawah Kamar Tidur kanan (3.25m)
+W(3.0, 7.2, 5.05, 7.2);      // Atas Kamar Tidur kiri (kiri pintu)
+W(5.95, 7.2, 6.25, 7.2);     // Atas Kamar Tidur kiri (kanan pintu)
+
+// Dinding depan Kamar Tidur kiri (z = 10.20, lebar 3.25m) dengan 2 jendela
+W(3.0, 10.2, 6.25, 10.2, [[3.75, 4.35], [4.95, 5.55]]);
+
+// Dinding depan Ruang Tamu (z = 9.70, lebar 3.25m) dengan pintu utama & 2 jendela
+W(6.25, 9.7, 6.45, 9.7);
+W(7.35, 9.7, 9.5, 9.7, [[7.8, 8.4], [8.65, 9.25]]);
+
+// 4. Balok dinding di atas bukaan pintu (tinggi 2.1m s/d 3.0m)
+[
+  [1.85, 3.0, 2.75, 3.0],     // Pintu Dapur kiri
+  [9.75, 3.0, 10.65, 3.0],    // Pintu Dapur kanan
+  [8.8, 0.0, 8.8, 0.9],       // Pintu Kamar Mandi
+  [3.0, 3.0, 3.0, 3.9],       // Pintu Ruang Santai
+  [6.25, 4.9, 6.25, 5.8],     // Pintu Kamar Tidur kanan
+  [5.05, 7.2, 5.95, 7.2],     // Pintu Kamar Tidur kiri
+  [6.45, 9.7, 7.35, 9.7]      // Pintu Utama Ruang Tamu
+].forEach(a => W(a[0], a[1], a[2], a[3], [], H, 2.1));
+
+// 5. Tiang Teras depan (z = 12.20m) menumpu pas di bawah kanopi
+[3.0, 6.125, 9.25].forEach(x => box(x, 0, 11.95, x + 0.25, 2.38, 12.2, wallM, 1));
+
+// 6. Daun Pintu (coklat kayu) sesuai arah bukaan pada denah
+D(2.75, 3.0, 0.9, -150);      // Pintu Dapur kiri (buka ke dalam kiri)
+D(10.65, 3.0, 0.9, -150);     // Pintu Dapur kanan (buka ke dalam kiri)
+D(8.8, 0.9, 0.85, -32);       // Pintu Kamar Mandi (buka ke dalam kanan)
+D(3.0, 3.9, 0.9, 28);         // Pintu Ruang Santai (buka ke dalam)
+D(6.25, 4.9, 0.9, 28);        // Pintu Kamar Tidur kanan (buka ke dalam)
+D(5.05, 7.2, 0.9, 28);        // Pintu Kamar Tidur kiri (buka ke dalam)
+D(7.35, 9.7, 0.9, -152);      // Pintu Utama Ruang Tamu (buka ke dalam kiri)
+
+// 7. Atap Pelana Utama + Sayap Dapur + Kanopi Teras (warna abu-abu asbes)
+const roofs = new T.Group();
+scene.add(roofs);
+
+function gable(x0, z0, x1, z1, alongX, rh, o) {
+  const w = (alongX ? z1 - z0 : x1 - x0) + 2 * o;
+  const L = (alongX ? x1 - x0 : z1 - z0) + 2 * o;
+  const s = new T.Shape();
+  s.moveTo(-w / 2, 0);
+  s.lineTo(w / 2, 0);
+  s.lineTo(0, rh);
+  s.closePath();
+  const m = new T.Mesh(new T.ExtrudeGeometry(s, { depth: L, bevelEnabled: false }), roofM);
+  if (alongX) {
+    m.rotation.y = Math.PI / 2;
+    m.position.set(x0 - o, H, (z0 + z1) / 2);
+  } else {
+    m.position.set((x0 + x1) / 2, H, z0 - o);
+  }
+  roofs.add(m);
+  const l = new T.LineSegments(new T.EdgesGeometry(m.geometry), edgeM);
+  l.rotation.copy(m.rotation);
+  l.position.copy(m.position);
+  roofs.add(l);
+}
+
+// Atap utama menaungi bangunan utama x=3.0..9.5, z=0..10.2
+gable(3.0, 0, 9.5, 10.2, true, 1.9, 0.4);
+
+// Atap sayap dapur kiri (x=-0.4..2.6) & kanan (x=9.9..11.4) mengikuti kemiringan atap utama
+function wingFB(x0, x1) {
+  const s = new T.Shape();
+  s.moveTo(0.4, 0);
+  s.lineTo(-3.4, 0);
+  s.lineTo(-3.4, 1.32);
+  s.lineTo(-1.5, 0.66);
+  s.closePath();
+  const m = new T.Mesh(new T.ExtrudeGeometry(s, { depth: x1 - x0, bevelEnabled: false }), roofM);
+  m.rotation.y = Math.PI / 2;
+  m.position.set(x0, H, 0);
+  roofs.add(m);
+  const l = new T.LineSegments(new T.EdgesGeometry(m.geometry), edgeM);
+  l.rotation.copy(m.rotation);
+  l.position.copy(m.position);
+  roofs.add(l);
+}
+wingFB(-0.4, 2.6);
+wingFB(9.9, 11.4);
+
+// Kanopi teras miring menaungi teras z=9.7..12.2 (overhang depan sampai z=12.6)
+const cs = new T.Shape();
+cs.moveTo(-9.7, 2.86);
+cs.lineTo(-12.6, 2.23);
+cs.lineTo(-12.6, 2.35);
+cs.lineTo(-9.7, 2.98);
+cs.closePath();
+const cm = new T.Mesh(new T.ExtrudeGeometry(cs, { depth: 6.7, bevelEnabled: false }), roofM);
+cm.rotation.y = Math.PI / 2;
+cm.position.set(2.9, 0, 0);
+roofs.add(cm);
+const cl = new T.LineSegments(new T.EdgesGeometry(cm.geometry), edgeM);
+cl.rotation.copy(cm.rotation);
+cl.position.copy(cm.position);
+roofs.add(cl);
+
+// Kontrol Kamera Orbit & Zoom
+let th = -0.5, ph = 0.9, d = 24;
+const tg = new T.Vector3(5.5, 0, 6.1);
+function upd() {
+  cam.position.set(
+    tg.x + d * Math.sin(th) * Math.cos(ph),
+    d * Math.sin(ph),
+    tg.z + d * Math.cos(th) * Math.cos(ph)
+  );
+  cam.lookAt(tg);
+}
 upd();
-const el=ren.domElement,pts=new Map();let pd=0;
-el.addEventListener('pointerdown',e=>{el.setPointerCapture(e.pointerId);pts.set(e.pointerId,[e.clientX,e.clientY])});
-el.addEventListener('pointerup',e=>{pts.delete(e.pointerId);pd=0});
-el.addEventListener('pointermove',e=>{if(!pts.has(e.pointerId))return;const o=pts.get(e.pointerId);
- if(pts.size==1){th-=(e.clientX-o[0])*.007;ph=Math.max(.1,Math.min(1.55,ph+(e.clientY-o[1])*.007))}
- pts.set(e.pointerId,[e.clientX,e.clientY]);
- if(pts.size==2){const[a,b]=[...pts.values()],n=Math.hypot(a[0]-b[0],a[1]-b[1]);if(pd)d=Math.max(5,Math.min(50,d*pd/n));pd=n}
- upd()});
-el.addEventListener('wheel',e=>{e.preventDefault();d=Math.max(5,Math.min(50,d*(1+e.deltaY*.001)));upd()},{passive:false});
-p.onclick=()=>{th=-.5;ph=.9;d=24;upd()};
-r.onclick=()=>{roofs.visible=!roofs.visible;r.textContent=roofs.visible?'Hilangkan atap':'Aktifkan atap'};
-t.onclick=()=>{th=0;ph=1.55;d=24;upd()};
-addEventListener('resize',()=>{cam.aspect=innerWidth/innerHeight;cam.updateProjectionMatrix();ren.setSize(innerWidth,innerHeight)});
-(function loop(){requestAnimationFrame(loop);ren.render(scene,cam)})();
+
+const el = ren.domElement, pts = new Map();
+let pd = 0;
+el.addEventListener('pointerdown', e => {
+  el.setPointerCapture(e.pointerId);
+  pts.set(e.pointerId, [e.clientX, e.clientY]);
+});
+el.addEventListener('pointerup', e => {
+  pts.delete(e.pointerId);
+  pd = 0;
+});
+el.addEventListener('pointermove', e => {
+  if (!pts.has(e.pointerId)) return;
+  const o = pts.get(e.pointerId);
+  if (pts.size === 1) {
+    th -= (e.clientX - o[0]) * 0.007;
+    ph = Math.max(0.1, Math.min(1.55, ph + (e.clientY - o[1]) * 0.007));
+  }
+  pts.set(e.pointerId, [e.clientX, e.clientY]);
+  if (pts.size === 2) {
+    const [a, b] = [...pts.values()], n = Math.hypot(a[0] - b[0], a[1] - b[1]);
+    if (pd) d = Math.max(5, Math.min(50, d * pd / n));
+    pd = n;
+  }
+  upd();
+});
+el.addEventListener('wheel', e => {
+  e.preventDefault();
+  d = Math.max(5, Math.min(50, d * (1 + e.deltaY * 0.001)));
+  upd();
+}, { passive: false });
+
+p.onclick = () => { th = -0.5; ph = 0.9; d = 24; upd(); };
+r.onclick = () => { roofs.visible = !roofs.visible; r.textContent = roofs.visible ? 'Hilangkan atap' : 'Aktifkan atap'; };
+t.onclick = () => { th = 0; ph = 1.55; d = 24; upd(); };
+addEventListener('resize', () => {
+  cam.aspect = innerWidth / innerHeight;
+  cam.updateProjectionMatrix();
+  ren.setSize(innerWidth, innerHeight);
+});
+(function loop() {
+  requestAnimationFrame(loop);
+  ren.render(scene, cam);
+})();
 </script></body></html>
