@@ -84,7 +84,7 @@ function box(x0, y0, z0, x1, y1, z1, m, edge, target = scene) {
   }
 }
 
-// Fungsi dinding berbasis koordinat meter presisi + otomatis menambah plint lantai & lis plafon
+// Fungsi dinding berbasis koordinat meter presisi (tanpa garis tepi antar-segmen agar rapi)
 function W(x1, z1, x2, z2, ops = [], h = H, y0 = 0) {
   const hz = Math.abs(z1 - z2) < 1e-6;
   const a0 = hz ? Math.min(x1, x2) : Math.min(z1, z2);
@@ -92,8 +92,8 @@ function W(x1, z1, x2, z2, ops = [], h = H, y0 = 0) {
   const c  = hz ? z1 : x1;
   const B  = (s, e, b, t, m) => {
     if (e - s < 0.01) return;
-    hz ? box(s - TH / 2, b, c - TH / 2, e + TH / 2, t, c + TH / 2, m, 1)
-       : box(c - TH / 2, b, s - TH / 2, c + TH / 2, t, e + TH / 2, m, 1);
+    hz ? box(s - TH / 2, b, c - TH / 2, e + TH / 2, t, c + TH / 2, m, 0)
+       : box(c - TH / 2, b, s - TH / 2, c + TH / 2, t, e + TH / 2, m, 0);
 
     if (b === 0 && t > 0.12) {
       const pT = TH / 2 + 0.012;
@@ -164,8 +164,8 @@ function D(hx, hz, w, deg) {
 // =========================================================================
 
 // 1. Pondasi / lantai dasar bertekstur keramik
-box(0, -0.3, 0, 11.0, 0, 3.0, slabM, 1);
-box(3.0, -0.3, 3.0, 9.5, 0, 12.2, slabM, 1);
+box(0, -0.3, 0, 11.0, 0, 3.0, slabM, 0);
+box(3.0, -0.3, 3.0, 9.5, 0, 12.2, slabM, 0);
 
 // 2. Dinding Dapur & Perkakas + Kamar Mandi (8m + 3m = 11m x 3m, tinggi 3.5m)
 W(0, 0, 11.0, 0);
@@ -178,7 +178,6 @@ W(2.75, 3.0, 9.75, 3.0);
 W(10.65, 3.0, 11.0, 3.0);
 
 // Sekat Kamar Mandi di pojok kanan atas (lebar 3.0m: x=8.00 s/d x=11.00, dalam 1.50m)
-// Pintu KM berada di bagian atas (z=0.0 s/d z=0.85), dinding penuh di bagian bawah (z=0.85 s/d z=1.50)
 W(8.0, 1.5, 11.0, 1.5);
 W(8.0, 0.85, 8.0, 1.5);
 
@@ -187,7 +186,6 @@ W(3.0, 3.9, 3.0, 10.2, [[4.7, 5.25], [5.65, 6.2]]);
 W(9.5, 3.0, 9.5, 9.7, [[4.85, 5.45]]);
 
 // Dinding tengah vertikal (x = 6.25)
-// Pintu Kamar Tidur kanan berada di bagian bawah dinding kamar (z=4.9 s/d z=5.8)
 W(6.25, 3.0, 6.25, 4.9);
 W(6.25, 5.8, 6.25, 6.0);
 W(6.25, 7.2, 6.25, 10.2);
@@ -206,30 +204,30 @@ W(7.35, 9.7, 9.5, 9.7, [[7.8, 8.4], [8.65, 9.25]]);
 
 // 4. Balok gawang di atas bukaan pintu & penghubung ruangan (tinggi 2.1m s/d 3.5m)
 [
-  [1.85, 3.0, 2.75, 3.0],     // Atas pintu Dapur kiri
-  [9.75, 3.0, 10.65, 3.0],    // Atas pintu Dapur kanan
-  [8.0, 0.0, 8.0, 0.85],      // Atas pintu Kamar Mandi
-  [3.0, 3.0, 3.0, 3.9],       // Atas pintu Ruang Santai
-  [6.25, 4.9, 6.25, 5.8],     // Atas pintu Kamar Tidur kanan
-  [6.25, 6.0, 6.25, 7.2],     // Gawang penghubung Ruang Tamu & Ruang Santai (lebar 1.25m)
-  [5.05, 7.2, 5.95, 7.2],     // Atas pintu Kamar Tidur kiri
-  [6.45, 9.7, 7.35, 9.7]      // Atas pintu Utama Ruang Tamu
+  [1.85, 3.0, 2.75, 3.0],
+  [9.75, 3.0, 10.65, 3.0],
+  [8.0, 0.0, 8.0, 0.85],
+  [3.0, 3.0, 3.0, 3.9],
+  [6.25, 4.9, 6.25, 5.8],
+  [6.25, 6.0, 6.25, 7.2],
+  [5.05, 7.2, 5.95, 7.2],
+  [6.45, 9.7, 7.35, 9.7]
 ].forEach(a => W(a[0], a[1], a[2], a[3], [], H, 2.1));
 
 // 5. Tiang Teras depan (z = 12.20m, tinggi 3.0m) menumpu pas di bawah kanopi
 [3.0, 6.125, 9.25].forEach(x => {
-  box(x, 0, 11.95, x + 0.25, H_TERAS, 12.2, wallM, 1);
+  box(x, 0, 11.95, x + 0.25, H_TERAS, 12.2, wallM, 0);
   box(x - 0.01, 0.002, 11.94, x + 0.26, 0.10, 12.21, plinthM, 0);
 });
 
 // 6. Daun Pintu (coklat kayu) sesuai arah bukaan pada denah terbaru
-D(2.75, 3.0, 0.9, -150);      // Pintu Dapur kiri (engsel kanan, buka ke dalam kiri)
-D(10.65, 3.0, 0.9, -150);     // Pintu Dapur kanan (engsel kanan, buka ke dalam kiri)
-D(8.0, 0.0, 0.85, 32);        // Pintu Kamar Mandi (engsel atas, buka ke dalam kanan)
-D(3.0, 3.0, 0.9, 25);         // Pintu Ruang Santai (engsel atas, buka ke dalam kanan)
-D(6.25, 5.8, 0.9, -25);       // Pintu Kamar Tidur kanan (engsel bawah, buka ke dalam kanan atas)
-D(5.95, 7.2, 0.9, 125);       // Pintu Kamar Tidur kiri (engsel kanan, buka ke dalam kiri bawah)
-D(6.45, 9.7, 0.9, -32);       // Pintu Utama Ruang Tamu (engsel kiri, buka ke dalam kanan atas)
+D(2.75, 3.0, 0.9, -150);
+D(10.65, 3.0, 0.9, -150);
+D(8.0, 0.0, 0.85, 32);
+D(3.0, 3.0, 0.9, 25);
+D(6.25, 5.8, 0.9, -25);
+D(5.95, 7.2, 0.9, 125);
+D(6.45, 9.7, 0.9, -32);
 
 // 7. Atap Pelana Utama + Sayap Dapur + Kanopi Teras + Plafon Interior
 const roofs = new T.Group();
@@ -387,7 +385,6 @@ function dimV(x, z, y1, y2, txt, offsetX = 0.35, offsetZ = 0) {
   dimLabel(txt, px + 0.55, (y1 + y2) / 2, pz, 0.75);
 }
 
-// Dimensi luar belakang 8m (Dapur) + 3m (Kamar Mandi)
 dimH(0.0, -0.55, 8.0, -0.55, '8m', [0, 1], [0, -0.35]);
 dimH(8.0, -0.55, 11.0, -0.55, '3m', [0, 1], [0, -0.35]);
 
