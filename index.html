@@ -623,21 +623,21 @@
         }
 
         // =========================================================================
-        // KONSTANTA GEOMETRI RANGKA ATAP BERTINGKAT (KUADRAN KANAN DEPAN TURUN 30CM)
+        // KONSTANTA GEOMETRI RANGKA ATAP BERTINGKAT (KUADRAN KANAN DEPAN TURUN 30CM & PENDEK 50CM)
         // =========================================================================
         // - Bagian Atas (Stabil):
-        //   * Seluruh sisi kiri (x = 3.0 s/d 6.25, z = 0.0 s/d 10.2 -> Kamar Tamu, R. Santai, Belakang)
+        //   * Sisi kiri (x = 3.0 s/d 6.25, z = 0.0 s/d 10.2 -> Kamar Tamu sampai dinding z = 10.2)
         //   * Bagian kanan belakang (x = 6.25 s/d 9.5, z = 0.0 s/d 6.0 -> Kamar Tidur Utama & Belakang)
-        // - Bagian Kanan Depan Turun 30cm (0.30m):
-        //   * Dibatasi oleh tembok tengah (x = 6.25) dan tembok batas kamar utama & ruang tamu (z = 6.0)
-        //   * Meliputi x = 6.25 s/d 9.5, z = 6.0 s/d 10.2 (di atas Ruang Tamu)
-        const MAIN_X0 = 3.0, MAIN_X1 = 9.5, MAIN_Z0 = 0.0, MAIN_Z1 = 10.2, MAIN_OV = 0.4;
+        // - Bagian Kanan Depan Turun 30cm (0.30m) & Mengikuti Dinding Ruang Tamu (z = 9.7):
+        //   * Dibatasi tembok tengah (x = 6.25) dan tembok batas kamar utama & ruang tamu (z = 6.0)
+        //   * Dinding depan Ruang Tamu berada di z = 9.7 (lebih pendek 50cm daripada Kamar Tamu z = 10.2)
+        const MAIN_X0 = 3.0, MAIN_X1 = 9.5, MAIN_Z0 = 0.0, MAIN_Z1_LEFT = 10.2, MAIN_Z1_RIGHT = 9.7, MAIN_OV = 0.4;
         const CENTER_WALL_X = 6.25; // tembok tengah
         const BED_WALL_Z = 6.0;     // tembok batas antara kamar utama dan ruang tamu
         const STEP_DROP = 0.30;     // turun 30cm untuk bagian atap kanan depan
 
-        const MAIN_Z_MID = (MAIN_Z0 + MAIN_Z1) / 2; // 5.10m
-        const MAIN_HALF_SPAN = MAIN_Z1 - MAIN_Z_MID; // 5.10m
+        const MAIN_Z_MID = (MAIN_Z0 + MAIN_Z1_LEFT) / 2; // 5.10m
+        const MAIN_HALF_SPAN = MAIN_Z1_LEFT - MAIN_Z_MID; // 5.10m
         const MAIN_HALF_ROOF_Z = MAIN_HALF_SPAN + MAIN_OV; // 5.50m
         const MAIN_RH = 1.9;
         const MAIN_SLOPE = MAIN_RH / MAIN_HALF_ROOF_Z; // 1.9 / 5.5
@@ -662,12 +662,12 @@
         const UP_SHEET_APEX_Y = UP_RAFTER_PEAK_Y + STACK_V;
         const UP_SHEET_EAVE_Y = UP_SHEET_APEX_Y - MAIN_HALF_ROOF_Z * MAIN_SLOPE;
 
-        // Elevasi atap kanan depan (x = 6.25 -> 9.5, z = 6.0 -> 10.2) turun tepat 30cm dari atap atas
-        // Tetap menumpang bersih di atas ring balk H = 3.50m pada z = 10.2 (tidak tertanam di dinding)
-        const DN_RAFTER_Z1_Y = H + MAIN_RAFTER_HALF_V;
+        // Elevasi atap kanan depan (x = 6.25 -> 9.5, z = 6.0 -> 9.7):
+        // Turun tepat 30cm dari atap atas di z = 6.0 dan menumpang bersih di atas ring balk Ruang Tamu z = 9.7 (H = 3.50m)
+        const DN_RAFTER_Z97_Y = H + MAIN_RAFTER_HALF_V;
         const DN_RAFTER_Z6_Y = (UP_RAFTER_PEAK_Y - (BED_WALL_Z - MAIN_Z_MID) * MAIN_SLOPE) - STEP_DROP;
-        const DN_SPAN_Z = MAIN_Z1 - BED_WALL_Z; // 4.20m
-        const DN_SLOPE = (DN_RAFTER_Z6_Y - DN_RAFTER_Z1_Y) / DN_SPAN_Z;
+        const DN_SPAN_Z = MAIN_Z1_RIGHT - BED_WALL_Z; // 3.70m (lebih pendek 50cm dari 4.20m)
+        const DN_SLOPE = (DN_RAFTER_Z6_Y - DN_RAFTER_Z97_Y) / DN_SPAN_Z;
         const COS_DN = 1 / Math.hypot(1, DN_SLOPE);
         const DN_RAFTER_HALF_V = (MAIN_RAFTER_H * 0.5) / COS_DN;
         const DN_PURLIN_V = MAIN_PURLIN_H / COS_DN;
@@ -675,7 +675,7 @@
         const DN_SHEET_CLEAR = 0.028 / COS_DN;
         const DN_STACK_V = DN_RAFTER_HALF_V + DN_PURLIN_V + DN_USUK_V + DN_SHEET_CLEAR;
 
-        const DN_RAFTER_OV_Y = DN_RAFTER_Z1_Y - MAIN_OV * DN_SLOPE;
+        const DN_RAFTER_OV_Y = DN_RAFTER_Z97_Y - MAIN_OV * DN_SLOPE;
         const DN_SHEET_Z6_Y = DN_RAFTER_Z6_Y + DN_STACK_V;
         const DN_SHEET_EAVE_Y = DN_SHEET_Z6_Y - (DN_SPAN_Z + MAIN_OV) * DN_SLOPE;
 
@@ -872,11 +872,11 @@
         // 5B. DINDING GUNUNGAN / GEWEL & PENUTUP DINDING BERTINGKAT (30 CM)
         // =========================================================================
         (function buildWallGables() {
-            const z0 = MAIN_Z0, z1 = MAIN_Z1;
+            const z0 = MAIN_Z0, z1Left = MAIN_Z1_LEFT, z1Right = MAIN_Z1_RIGHT;
             const zMid = MAIN_Z_MID;
             const halfWallZ = MAIN_HALF_SPAN;
 
-            // 1. Gunungan dinding kiri luar (x = 3.0) — penuh utuh stabil dari atas
+            // 1. Gunungan dinding kiri luar (x = 3.0) — penuh utuh stabil sampai z = 10.2
             const yLeftEdgeOffset = Math.max(0.01, (UP_RAFTER_WALL_Y - MAIN_RAFTER_HALF_V) - H);
             const yLeftPeakOffset = (UP_RAFTER_PEAK_Y - MAIN_RAFTER_HALF_V) - H;
 
@@ -899,18 +899,18 @@
 
             [3.0 - hT, 3.0 + hT].forEach(xEdge => {
                 segLine(xEdge, H + yLeftEdgeOffset, z0, xEdge, H + yLeftPeakOffset, zMid);
-                segLine(xEdge, H + yLeftPeakOffset, zMid, xEdge, H + yLeftEdgeOffset, z1);
+                segLine(xEdge, H + yLeftPeakOffset, zMid, xEdge, H + yLeftEdgeOffset, z1Left);
             });
 
-            // 2. Gunungan dinding kanan luar (x = 9.5) — turun 30cm dari batas tembok kamar (z = 6.0) ke depan (z = 10.2)
+            // 2. Gunungan dinding kanan luar (x = 9.5) — turun 30cm di z = 6.0 dan berhenti tepat di dinding ruang tamu z = 9.7
             const yUpAtZ6 = (UP_RAFTER_PEAK_Y - MAIN_RAFTER_HALF_V) - (BED_WALL_Z - zMid) * MAIN_SLOPE - H;
             const yDnAtZ6 = (DN_RAFTER_Z6_Y - DN_RAFTER_HALF_V) - H;
-            const yDnAtZ10 = Math.max(0.01, (DN_RAFTER_Z1_Y - DN_RAFTER_HALF_V) - H);
+            const yDnAtZ97 = Math.max(0.01, (DN_RAFTER_Z97_Y - DN_RAFTER_HALF_V) - H);
 
             const rightGableShape = new T.Shape();
             rightGableShape.moveTo(-z0, 0);
-            rightGableShape.lineTo(-z1, 0);
-            rightGableShape.lineTo(-z1, yDnAtZ10);
+            rightGableShape.lineTo(-z1Right, 0);
+            rightGableShape.lineTo(-z1Right, yDnAtZ97);
             rightGableShape.lineTo(-BED_WALL_Z, yDnAtZ6);
             rightGableShape.lineTo(-BED_WALL_Z, yUpAtZ6);
             rightGableShape.lineTo(-zMid, yLeftPeakOffset);
@@ -930,15 +930,15 @@
                 segLine(xEdge, H + yLeftEdgeOffset, z0, xEdge, H + yLeftPeakOffset, zMid);
                 segLine(xEdge, H + yLeftPeakOffset, zMid, xEdge, H + yUpAtZ6, BED_WALL_Z);
                 segLine(xEdge, H + yUpAtZ6, BED_WALL_Z, xEdge, H + yDnAtZ6, BED_WALL_Z);
-                segLine(xEdge, H + yDnAtZ6, BED_WALL_Z, xEdge, H + yDnAtZ10, z1);
+                segLine(xEdge, H + yDnAtZ6, BED_WALL_Z, xEdge, H + yDnAtZ97, z1Right);
             });
 
             // 3. Penutup vertikal 30cm di atas tembok tengah (x = 6.25, z = 6.0 -> 10.2)
-            // Menutup celah bertingkat antara atap atas (kamar tamu) dan atap kanan bawah (ruang tamu)
+            // Menutup penuh celah bertingkat antara atap kiri atas (kamar tamu) dan atap kanan bawah (ruang tamu)
             const stepCenterShape = new T.Shape();
             stepCenterShape.moveTo(-BED_WALL_Z, 0);
-            stepCenterShape.lineTo(-z1, 0);
-            stepCenterShape.lineTo(-z1, yLeftEdgeOffset);
+            stepCenterShape.lineTo(-z1Left, 0);
+            stepCenterShape.lineTo(-z1Left, yLeftEdgeOffset);
             stepCenterShape.lineTo(-BED_WALL_Z, yUpAtZ6);
             stepCenterShape.closePath();
 
@@ -952,7 +952,7 @@
             scene.add(stepCenterMesh);
 
             [CENTER_WALL_X - hT, CENTER_WALL_X + hT].forEach(xEdge => {
-                segLine(xEdge, H + yUpAtZ6, BED_WALL_Z, xEdge, H + yLeftEdgeOffset, z1);
+                segLine(xEdge, H + yUpAtZ6, BED_WALL_Z, xEdge, H + yLeftEdgeOffset, z1Left);
             });
 
             // 4. Penutup vertikal 30cm di atas tembok batas kamar utama & ruang tamu (z = 6.0, x = 6.25 -> 9.5)
@@ -1050,26 +1050,24 @@
         D(FRONT_DOOR_X0 + JAMB_T, 9.7, DOOR_CLEAR_W, -32, 0);
 
         // =========================================================================
-        // 7. RANGKA ATAP KAYU BERTINGKAT (KUADRAN KANAN DEPAN TURUN 30CM)
+        // 7. RANGKA ATAP KAYU BERTINGKAT (KUADRAN KANAN DEPAN TURUN 30CM & PENDEK 50CM)
         // =========================================================================
         const timberFrame = new T.Group();
         scene.add(timberFrame);
 
         (function buildTimberRoofStructure() {
-            const x0 = MAIN_X0, x1 = MAIN_X1, z0 = MAIN_Z0, z1 = MAIN_Z1, ov = MAIN_OV;
+            const x0 = MAIN_X0, x1 = MAIN_X1, z0 = MAIN_Z0, z1Left = MAIN_Z1_LEFT, z1Right = MAIN_Z1_RIGHT, ov = MAIN_OV;
             const zMid = MAIN_Z_MID;
 
             // ---------------------------------------------------------------------
             // 7.1A KUDA-KUDA & RANGKA ATAP ATAS (STABIL DARI ATAS)
             // ---------------------------------------------------------------------
-            // Kuda-kuda kiri penuh (x = 4.625, di atas Kamar Tamu, R. Santai, Belakang)
-            // Kuda-kuda tengah (x = 6.25, di atas tembok tengah - sisi atas menopang atap kiri)
             const fullTrussXs = [4.625, 6.25];
             for (const tx of fullTrussXs) {
-                woodBeam([tx, MAIN_TIE_Y, z0 - hT], [tx, MAIN_TIE_Y, z1 + hT], 0.08, MAIN_TIE_H, timberMainM);
+                woodBeam([tx, MAIN_TIE_Y, z0 - hT], [tx, MAIN_TIE_Y, z1Left + hT], 0.08, MAIN_TIE_H, timberMainM);
                 woodBeam([tx, MAIN_TIE_Y + MAIN_TIE_H * 0.5, zMid], [tx, UP_RAFTER_PEAK_Y - 0.03, zMid], 0.10, 0.10, timberMainM, timberFrame, [0, 0, 1]);
                 woodBeam([tx, UP_RAFTER_PEAK_Y, zMid], [tx, UP_RAFTER_OV_Y, z0 - ov], 0.08, MAIN_RAFTER_H, timberMainM);
-                woodBeam([tx, UP_RAFTER_PEAK_Y, zMid], [tx, UP_RAFTER_OV_Y, z1 + ov], 0.08, MAIN_RAFTER_H, timberMainM);
+                woodBeam([tx, UP_RAFTER_PEAK_Y, zMid], [tx, UP_RAFTER_OV_Y, z1Left + ov], 0.08, MAIN_RAFTER_H, timberMainM);
 
                 const strutZ = 2.40;
                 const strutTopY = UP_RAFTER_PEAK_Y - strutZ * MAIN_SLOPE - 0.02;
@@ -1079,43 +1077,42 @@
 
             // Kuda-kuda kanan (x = 7.875):
             // - Belakang sampai tembok batas kamar utama (z = 0.0 -> 6.0) mengikuti atap atas
-            // - Depan dari tembok batas kamar utama ke ring balk depan (z = 6.0 -> 10.2) turun 30cm
+            // - Depan dari tembok batas kamar utama ke ring balk ruang tamu (z = 6.0 -> 9.7 + overhang 0.4) turun 30cm & pendek 50cm
             const txRight = 7.875;
-            woodBeam([txRight, MAIN_TIE_Y, z0 - hT], [txRight, MAIN_TIE_Y, z1 + hT], 0.08, MAIN_TIE_H, timberMainM);
+            woodBeam([txRight, MAIN_TIE_Y, z0 - hT], [txRight, MAIN_TIE_Y, z1Right + hT], 0.08, MAIN_TIE_H, timberMainM);
             woodBeam([txRight, MAIN_TIE_Y + MAIN_TIE_H * 0.5, zMid], [txRight, UP_RAFTER_PEAK_Y - 0.03, zMid], 0.10, 0.10, timberMainM, timberFrame, [0, 0, 1]);
-            // Kaki kuda-kuda atas kanan (z = 5.10 ke belakang z = -0.4, dan ke depan hanya sampai z = 6.0)
+
             woodBeam([txRight, UP_RAFTER_PEAK_Y, zMid], [txRight, UP_RAFTER_OV_Y, z0 - ov], 0.08, MAIN_RAFTER_H, timberMainM);
             const upRightZ6Y = UP_RAFTER_PEAK_Y - (BED_WALL_Z - zMid) * MAIN_SLOPE;
             woodBeam([txRight, UP_RAFTER_PEAK_Y, zMid], [txRight, upRightZ6Y, BED_WALL_Z], 0.08, MAIN_RAFTER_H, timberMainM);
-            // Kaki kuda-kuda kanan bawah (turun 30cm di z = 6.0 menuju ring balk z = 10.2 & overhang z = 10.6)
-            woodBeam([txRight, DN_RAFTER_Z6_Y, BED_WALL_Z], [txRight, DN_RAFTER_OV_Y, z1 + ov], 0.08, MAIN_RAFTER_H, timberMainM);
+
+            // Kaki kuda-kuda kanan bawah berhenti di z = 9.7 + 0.4 = 10.1 (lebih pendek 50cm daripada z = 10.6)
+            woodBeam([txRight, DN_RAFTER_Z6_Y, BED_WALL_Z], [txRight, DN_RAFTER_OV_Y, z1Right + ov], 0.08, MAIN_RAFTER_H, timberMainM);
 
             // Balok Nok (x = 2.6 s/d 9.9, di puncak z = 5.10)
             const ridgeCenterY = UP_RAFTER_PEAK_Y + MAIN_RAFTER_HALF_V + 0.04;
             woodBeam([x0 - ov, ridgeCenterY, zMid], [x1 + ov, ridgeCenterY, zMid], 0.07, 0.12, timberPurlinM);
 
-            // Gording Atap Atas (duduk tepat di atas kaki kuda-kuda atas, tidak tertanam di ring balk)
+            // Gording Atap Atas
             const upPurlinOffset = MAIN_RAFTER_HALF_V + MAIN_PURLIN_V * 0.5;
-            // Gording belakang penuh (z < 5.10): lebar penuh dari x = 2.6 s/d 9.9
             const backPurlinOffsets = [1.05, 2.10, 3.15, 4.20, 5.05];
             for (const dzOff of backPurlinOffsets) {
                 const py = UP_RAFTER_PEAK_Y - dzOff * MAIN_SLOPE + upPurlinOffset;
                 woodBeam([x0 - ov, py, zMid - dzOff], [x1 + ov, py, zMid - dzOff], 0.06, MAIN_PURLIN_H, timberPurlinM);
             }
-            // Gording depan atas sebelum batas z = 6.0 (dzOff = 0.85 -> z = 5.95): lebar penuh x = 2.6 s/d 9.9
             const pyZ595 = UP_RAFTER_PEAK_Y - 0.85 * MAIN_SLOPE + upPurlinOffset;
             woodBeam([x0 - ov, pyZ595, zMid + 0.85], [x1 + ov, pyZ595, zMid + 0.85], 0.06, MAIN_PURLIN_H, timberPurlinM);
 
-            // Gording depan atas setelah z = 6.0 (khusus sisi kiri x = 2.6 s/d 6.25 di atas Kamar Tamu)
+            // Gording depan atas setelah z = 6.0 (khusus sisi kiri x = 2.6 s/d 6.25 di atas Kamar Tamu sampai z = 10.15)
             const leftFrontPurlinOffsets = [1.90, 2.95, 4.00, 5.05];
             for (const dzOff of leftFrontPurlinOffsets) {
                 const py = UP_RAFTER_PEAK_Y - dzOff * MAIN_SLOPE + upPurlinOffset;
                 woodBeam([x0 - ov, py, zMid + dzOff], [CENTER_WALL_X, py, zMid + dzOff], 0.06, MAIN_PURLIN_H, timberPurlinM);
             }
 
-            // Gording Atap Kanan Depan Turun 30cm (khusus x = 6.25 s/d 9.9, z = 6.08 s/d 10.15 di atas Ruang Tamu)
+            // Gording Atap Kanan Depan Turun 30cm (khusus x = 6.25 s/d 9.9, z = 6.08 s/d 9.65 di atas Ruang Tamu)
             const dnPurlinOffset = DN_RAFTER_HALF_V + DN_PURLIN_V * 0.5;
-            const dnPurlinZs = [6.08, 7.10, 8.12, 9.14, 10.15];
+            const dnPurlinZs = [6.08, 6.97, 7.86, 8.75, 9.65];
             for (const pz of dnPurlinZs) {
                 const py = DN_RAFTER_Z6_Y - (pz - BED_WALL_Z) * DN_SLOPE + dnPurlinOffset;
                 woodBeam([CENTER_WALL_X, py, pz], [x1 + ov, py, pz], 0.06, MAIN_PURLIN_H, timberPurlinM);
@@ -1138,12 +1135,12 @@
                 woodBeam([ux, upUsukPeakY, zMid], [ux, upUsukOvY, z0 - ov], 0.045, MAIN_USUK_H, timberMainM);
 
                 if (ux <= CENTER_WALL_X) {
-                    // Usuk depan sisi kiri (Kamar Tamu): stabil menerus dari puncak z = 5.10 ke overhang depan z = 10.6
-                    woodBeam([ux, upUsukPeakY, zMid], [ux, upUsukOvY, z1 + ov], 0.045, MAIN_USUK_H, timberMainM);
+                    // Usuk depan sisi kiri (Kamar Tamu): stabil menerus sampai overhang depan z = 10.6
+                    woodBeam([ux, upUsukPeakY, zMid], [ux, upUsukOvY, z1Left + ov], 0.045, MAIN_USUK_H, timberMainM);
                 } else {
-                    // Usuk depan sisi kanan (Ruang Tamu): atap atas berhenti di batas tembok kamar z = 6.0, lalu turun 30cm menuju overhang z = 10.6
+                    // Usuk depan sisi kanan (Ruang Tamu): berhenti di z = 9.7 + 0.4 = 10.1 (lebih pendek 50cm)
                     woodBeam([ux, upUsukPeakY, zMid], [ux, upUsukZ6Y, BED_WALL_Z], 0.045, MAIN_USUK_H, timberMainM);
-                    woodBeam([ux, dnUsukZ6Y, BED_WALL_Z], [ux, dnUsukOvY, z1 + ov], 0.045, MAIN_USUK_H, timberMainM);
+                    woodBeam([ux, dnUsukZ6Y, BED_WALL_Z], [ux, dnUsukOvY, z1Right + ov], 0.045, MAIN_USUK_H, timberMainM);
                 }
             }
 
@@ -1213,7 +1210,7 @@
         })();
 
         // =========================================================================
-        // 8. ATAP GELOMBANG ALA ASBES BERTINGKAT (KUADRAN KANAN DEPAN TURUN 30CM)
+        // 8. ATAP GELOMBANG ALA ASBES BERTINGKAT (KUADRAN KANAN DEPAN TURUN 30CM & PENDEK 50CM)
         // =========================================================================
         const roofs = new T.Group();
         scene.add(roofs);
@@ -1379,21 +1376,21 @@
         }
 
         (function buildMainAsbesSheets() {
-            const x0 = MAIN_X0, x1 = MAIN_X1, z0 = MAIN_Z0, z1 = MAIN_Z1, o = MAIN_OV;
+            const x0 = MAIN_X0, x1 = MAIN_X1, z0 = MAIN_Z0, z1Left = MAIN_Z1_LEFT, z1Right = MAIN_Z1_RIGHT, o = MAIN_OV;
             const zMid = MAIN_Z_MID;
 
             // 1. Bidang belakang penuh (x = 2.6 -> 9.9, z = 5.10 -> -0.4): stabil dari atas
             addAsbesSlope(x0 - o, x1 + o, zMid, UP_SHEET_APEX_Y, z0 - o, UP_SHEET_EAVE_Y);
 
             // 2. Bidang depan kiri penuh (x = 2.6 -> 6.25, z = 5.10 -> 10.6, di atas Kamar Tamu): stabil dari atas
-            addAsbesSlope(x0 - o, CENTER_WALL_X, zMid, UP_SHEET_APEX_Y, z1 + o, UP_SHEET_EAVE_Y);
+            addAsbesSlope(x0 - o, CENTER_WALL_X, zMid, UP_SHEET_APEX_Y, z1Left + o, UP_SHEET_EAVE_Y);
 
             // 3. Bidang depan kanan bagian atas sampai batas tembok kamar (x = 6.25 -> 9.9, z = 5.10 -> 6.0)
             const upSheetZ6Y = UP_SHEET_APEX_Y - (BED_WALL_Z - zMid) * MAIN_SLOPE;
             addAsbesSlope(CENTER_WALL_X, x1 + o, zMid, UP_SHEET_APEX_Y, BED_WALL_Z, upSheetZ6Y);
 
-            // 4. Bidang depan kanan turun 30cm (x = 6.25 -> 9.9, z = 6.0 -> 10.6, di atas Ruang Tamu)
-            addAsbesSlope(CENTER_WALL_X, x1 + o, BED_WALL_Z, DN_SHEET_Z6_Y, z1 + o, DN_SHEET_EAVE_Y);
+            // 4. Bidang depan kanan turun 30cm & berhenti mengikuti dinding Ruang Tamu z = 9.7 + 0.4 = 10.1 (lebih pendek 50cm)
+            addAsbesSlope(CENTER_WALL_X, x1 + o, BED_WALL_Z, DN_SHEET_Z6_Y, z1Right + o, DN_SHEET_EAVE_Y);
 
             // Nok bubungan penuh di puncak atap atas (z = 5.10)
             addAsbesRidge(x0 - o - 0.015, x1 + o + 0.015, zMid, UP_SHEET_APEX_Y, MAIN_SLOPE);
