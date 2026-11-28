@@ -934,6 +934,20 @@
         const timberFrame = new T.Group();
         scene.add(timberFrame);
 
+        const CANOPY_Z_START = 9.7;
+        const CANOPY_Z_END = 12.6;
+        const CANOPY_SLOPE = 0.46 / 2.9;
+        const COS_CANOPY = 1 / Math.hypot(1, CANOPY_SLOPE);
+        const CANOPY_SHEET_CLEAR = 0.032 / COS_CANOPY;
+        const CANOPY_PURLIN_H = 0.06;
+        const CANOPY_PURLIN_DROP = CANOPY_SHEET_CLEAR + (CANOPY_PURLIN_H * 0.5) / COS_CANOPY;
+        const CANOPY_RAFTER_H = 0.08;
+        const CANOPY_RAFTER_DROP = CANOPY_SHEET_CLEAR + (CANOPY_PURLIN_H + CANOPY_RAFTER_H * 0.5) / COS_CANOPY;
+        const CANOPY_RAFTER_HALF_V = (CANOPY_RAFTER_H * 0.5) / COS_CANOPY;
+        // Sisi bawah kasau tepat menumpang di atas balok cor H_TERAS (3.0m) pada z = 12.2
+        const CANOPY_Y_END = H_TERAS + CANOPY_RAFTER_HALF_V + CANOPY_RAFTER_DROP - (CANOPY_Z_END - 12.2) * CANOPY_SLOPE;
+        const CANOPY_Y_START = CANOPY_Y_END + (CANOPY_Z_END - CANOPY_Z_START) * CANOPY_SLOPE;
+
         (function buildTimberRoofStructure() {
             // 7.1 Atap Pelana Utama (lembaran gelombang berada di antara yBase-0.025 s/d yBase+0.025)
             const x0 = 3.0, x1 = 9.5, z0 = 0.0, z1 = 10.2, rh = 1.9, ov = 0.4;
@@ -1030,17 +1044,15 @@
             buildWingTimber(-0.4, 3.0 - hT, H_LOW, [0.75, 1.50, 2.25]);
             buildWingTimber(9.5 + hT, 11.4, H_LOW, [10.0, 10.5]);
 
-            // 7.3 Kanopi Teras Depan (kasau ditumpangkan langsung ke tembok depan tanpa balok ditanam)
+            // 7.3 Kanopi Teras Depan (kasau menumpang langsung di atas balok cor H_TERAS z = 12.2)
             const cX0 = 3.0 - ov, cX1 = 9.5 + ov;
-            const cZStart = 9.7, cZEnd = 12.6;
-            const cYStart = 3.44, cYEnd = 2.98;
-            const cSlope = (cYStart - cYEnd) / (cZEnd - cZStart); // 0.46 / 2.9 (~0.1586)
-            const cosCanopy = 1 / Math.hypot(1, cSlope);
-            const canopySheetClear = 0.032 / cosCanopy;
-            const canopyPurlinH = 0.06;
-            const canopyPurlinDrop = canopySheetClear + (canopyPurlinH * 0.5) / cosCanopy; // ~0.063m
-            const canopyRafterH = 0.08;
-            const canopyRafterDrop = canopySheetClear + (canopyPurlinH + canopyRafterH * 0.5) / cosCanopy; // ~0.134m
+            const cZStart = CANOPY_Z_START, cZEnd = CANOPY_Z_END;
+            const cYStart = CANOPY_Y_START, cYEnd = CANOPY_Y_END;
+            const cSlope = CANOPY_SLOPE;
+            const canopyPurlinH = CANOPY_PURLIN_H;
+            const canopyPurlinDrop = CANOPY_PURLIN_DROP;
+            const canopyRafterH = CANOPY_RAFTER_H;
+            const canopyRafterDrop = CANOPY_RAFTER_DROP;
 
             const leftLedgerZ = 10.2;
             const leftLedgerY = cYStart - (leftLedgerZ - cZStart) * cSlope;
@@ -1256,7 +1268,7 @@
         addAsbesSlope(-0.4, 3.0 - hT, 3.4, H_LOW + 1.32, -0.4, H_LOW);
         addAsbesSlope(9.5 + hT, 11.4, 3.4, H_LOW + 1.32, -0.4, H_LOW);
 
-        addAsbesSlope(3.0 - 0.4, 9.5 + 0.4, 9.7, 3.44, 12.6, 2.98);
+        addAsbesSlope(3.0 - 0.4, 9.5 + 0.4, CANOPY_Z_START, CANOPY_Y_START, CANOPY_Z_END, CANOPY_Y_END);
 
         // =========================================================================
         // 9. GARIS UKUR PRESISI DENGAN KETERANGAN LENGKAP (PANJANG, LEBAR, TINGGI)
