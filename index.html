@@ -339,14 +339,14 @@
                 box(a0, yBot + fT, c - dHalf, a0 + fT, yTop - fT, c + dHalf, frameM, 1);
                 box(a1 - fT, yBot + fT, c - dHalf, a1, yTop - fT, c + dHalf, frameM, 1);
 
-                // Tiang pembagi vertikal kayu (1 di tengah jika lebar standar, atau pembagi untuk bukaan lebar)
+                // Tiang pembagi vertikal kayu
                 const innerW = span - fT * 2;
                 const posts = innerW > 0.72 ? [a0 + span * 0.22, a0 + span * 0.50, a0 + span * 0.78] : [a0 + span * 0.50];
                 for (const px of posts) {
                     box(px - 0.015, yBot + fT, c - dHalf + 0.008, px + 0.015, yTop - fT, c + dHalf - 0.008, frameM, 1);
                 }
 
-                // Bilah-bilah kisi kayu horizontal (tembus udara/cahaya di celahnya)
+                // Bilah-bilah kisi kayu horizontal
                 const stepY = innerH / (slats + 1);
                 for (let i = 1; i <= slats; i++) {
                     const sy = yBot + fT + i * stepY;
@@ -639,13 +639,13 @@
         W(8.0, BATH_OPEN_SPAN, 8.0, 1.5, [], H, Y_DROP);
 
         // =========================================================================
-        // 3. DINDING BANGUNAN UTAMA & JENDELA (REVISI UKURAN)
+        // 3. DINDING BANGUNAN UTAMA & JENDELA
         // =========================================================================
-        // Jendela ruang santai: lebar 50cm (0.50m), tinggi 120cm (y = 0.88 s/d 2.08)
+        // Jendela ruang santai: 2 jendela lebar 50cm (0.50m), tinggi 120cm (y = 0.88 s/d 2.08)
         W(3.0, 3.92, 3.0, 10.2, [[4.95, 5.45, 0.88, 2.08], [5.65, 6.15, 0.88, 2.08]], H, 0, false, -1);
 
-        // Jendela kamar kanan (kamar tidur utama): lebar 50cm (0.50m), tinggi 120cm (y = 0.88 s/d 2.08)
-        W(9.5, 3.0, 9.5, 9.7, [[4.90, 5.40, 0.88, 2.08]], H, 0, false, 1);
+        // Jendela kamar kanan (kamar tidur utama): 2 jendela lebar 50cm (0.50m), tinggi 120cm (y = 0.88 s/d 2.08)
+        W(9.5, 3.0, 9.5, 9.7, [[3.90, 4.40, 0.88, 2.08], [4.60, 5.10, 0.88, 2.08]], H, 0, false, 1);
 
         W(6.25, 3.0, 6.25, 4.98, [], H, 0);
         W(6.25, 5.90, 6.25, 6.0, [], H, 0);
@@ -655,10 +655,10 @@
         W(3.0, 7.2, 5.08, 7.2, [], H, 0);
         W(6.00, 7.2, 6.25, 7.2, [], H, 0);
 
-        // Jendela depan kamar kiri (kamar tidur tamu): lebar 50cm (0.50m), tinggi 1.6m (y = 0.48 s/d 2.08)
+        // Jendela depan kamar kiri (kamar tidur tamu): 2 jendela lebar 50cm (0.50m), tinggi 1.6m (y = 0.48 s/d 2.08)
         W(3.0, 10.2, 6.25, 10.2, [[4.025, 4.525, 0.48, 2.08], [4.725, 5.225, 0.48, 2.08]], H, 0, false, 1);
 
-        // Jendela depan ruang tamu: lebar 50cm (0.50m), tinggi 1.6m (y = 0.48 s/d 2.08)
+        // Jendela depan ruang tamu: 2 jendela lebar 50cm (0.50m), tinggi 1.6m (y = 0.48 s/d 2.08)
         W(6.25, 9.7, 6.45, 9.7, [], H, 0);
         W(7.37, 9.7, 9.5, 9.7, [[7.90, 8.40, 0.48, 2.08], [8.60, 9.10, 0.48, 2.08]], H, 0, false, 1);
 
