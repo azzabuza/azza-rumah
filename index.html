@@ -79,6 +79,7 @@
         <button id="p">Perspektif</button>
         <button id="t">Tampak atas</button>
         <button id="r">Hilangkan atap</button>
+        <button id="k">Hilangkan rangka</button>
         <button id="m">Sembunyikan garis</button>
         <button id="v">Aktifkan POV</button>
         <button id="pan">Aktifkan panorama</button>
@@ -234,14 +235,45 @@
             return { sheetMat, ridgeMat };
         }
 
+        function createWoodTexture() {
+            const cv = document.createElement('canvas');
+            cv.width = 256;
+            cv.height = 256;
+            const g = cv.getContext('2d');
+
+            g.fillStyle = '#9a6134';
+            g.fillRect(0, 0, 256, 256);
+
+            let seed = 108;
+            const rand = () => {
+                seed = (seed * 1664525 + 1013904223) % 4294967296;
+                return seed / 4294967296;
+            };
+
+            for (let y = 0; y < 256; y += 2) {
+                const dark = rand() > 0.45;
+                g.fillStyle = dark ? 'rgba(92, 52, 22, 0.22)' : 'rgba(182, 125, 76, 0.16)';
+                g.fillRect(0, y, 256, 1 + rand() * 1.5);
+            }
+
+            const tex = new T.CanvasTexture(cv);
+            tex.wrapS = T.RepeatWrapping;
+            tex.wrapT = T.RepeatWrapping;
+            tex.anisotropy = 4;
+            return tex;
+        }
+
         const tileTex = createTileTexture();
+        const woodTex = createWoodTexture();
         const { sheetMat: asbesM, ridgeMat: asbesRidgeM } = createAsbesMaterials();
 
         const wallM = new T.MeshLambertMaterial({ color: 0xf5f5f3 });
-        const plinthM = new T.MeshLambertMaterial({ color: 0x57534e });
         const slabM = new T.MeshLambertMaterial({ map: tileTex });
         const slabSideM = new T.MeshLambertMaterial({ color: 0xf5f5f3 }); // Sama persis dengan warna dinding
         const ceilingM = new T.MeshLambertMaterial({ color: 0xffffff, side: T.DoubleSide });
+        const timberMainM = new T.MeshLambertMaterial({ map: woodTex, color: 0xb67b48 }); // Balok kuda-kuda & tiang kayu
+        const timberPurlinM = new T.MeshLambertMaterial({ map: woodTex, color: 0x9c6234 }); // Gording, usuk & nok kayu
+        const woodEdgeM = new T.LineBasicMaterial({ color: 0x4b2a12 });
         const doorM = new T.MeshLambertMaterial({ color: 0x7a441e });
         const frameM = new T.MeshLambertMaterial({ color: 0x5c3012 }); // Kusen kayu pintu, jendela & ventilasi
         const aluFrameM = new T.MeshLambertMaterial({ color: 0x9ca3af }); // Kusen aluminium kamar mandi
@@ -252,15 +284,46 @@
         const edgeM = new T.LineBasicMaterial({ color: 0x22262a });
         const cornerM = new T.LineBasicMaterial({ color: 0x9c9890 });
 
-        function box(x0, y0, z0, x1, y1, z1, m, edge, target = scene) {
+        function box(x0, y0, z0, x1, y1, z1, m, edge, target = scene, eMat = edgeM) {
             const b = new T.Mesh(new T.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), m);
             b.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
             target.add(b);
             if (edge) {
-                const l = new T.LineSegments(new T.EdgesGeometry(b.geometry), edgeM);
+                const l = new T.LineSegments(new T.EdgesGeometry(b.geometry), eMat);
                 l.position.copy(b.position);
                 target.add(l);
             }
+            return b;
+        }
+
+        // Helper balok kayu 3D dari titik A(x0,y0,z0) ke titik B(x1,y1,z1) dengan penampang (w x h)
+        function woodBeam(p0, p1, w, h, mat = timberMainM, target = timberFrame, upHint = null) {
+            const v0 = new T.Vector3(p0[0], p0[1], p0[2]);
+            const v1 = new T.Vector3(p1[0], p1[1], p1[2]);
+            const dir = new T.Vector3().subVectors(v1, v0);
+            const len = dir.length();
+            if (len < 0.005) return;
+
+            const geo = new T.BoxGeometry(w, h, len);
+            const mesh = new T.Mesh(geo, mat);
+            mesh.position.addVectors(v0, v1).multiplyScalar(0.5);
+
+            const zAxis = dir.clone().normalize();
+            let up = upHint ? new T.Vector3(upHint[0], upHint[1], upHint[2]).normalize() : new T.Vector3(0, 1, 0);
+            if (Math.abs(zAxis.dot(up)) > 0.98) {
+                up = new T.Vector3(1, 0, 0);
+            }
+            const xAxis = new T.Vector3().crossVectors(up, zAxis).normalize();
+            const yAxis = new T.Vector3().crossVectors(zAxis, xAxis).normalize();
+            const basis = new T.Matrix4().makeBasis(xAxis, yAxis, zAxis);
+            mesh.quaternion.setFromRotationMatrix(basis);
+
+            target.add(mesh);
+
+            const edge = new T.LineSegments(new T.EdgesGeometry(geo), woodEdgeM);
+            edge.position.copy(mesh.position);
+            edge.quaternion.copy(mesh.quaternion);
+            target.add(edge);
         }
 
         function floorSlab(x0, y0, z0, x1, y1, z1) {
@@ -445,13 +508,8 @@
             }
         }
 
-        let wallOrder = 0;
         // Format ops jendela: [start, end, yBot (opsional, default 0.72), yTop (opsional, default 2.08)]
         function W(x1, z1, x2, z2, ops = [], h = H, y0 = 0, isBeam = false, winOutDir = 1) {
-            const wIdx = ++wallOrder;
-            const jitY = wIdx * 0.00008;
-            const jitT = (wIdx % 7) * 0.00012;
-
             const hz = Math.abs(z1 - z2) < 1e-6;
             const a0 = hz ? Math.min(x1, x2) : Math.min(z1, z2);
             const a1 = hz ? Math.max(x1, x2) : Math.max(z1, z2);
@@ -460,13 +518,6 @@
                 if (e - s < 0.01) return;
                 hz ? box(s - hT, b, c - hT, e + hT, t, c + hT, m, 0)
                     : box(c - hT, b, s - hT, c + hT, t, e + hT, m, 0);
-
-                // Hanya list bagian atas dinding (ring balk), plint lantai dihapus total
-                if (Math.abs(t - H) < 0.01 || Math.abs(t - H_LOW) < 0.01) {
-                    const cT = hT + 0.01 + jitT;
-                    hz ? box(s - hT, t - 0.07 - jitY, c - cT, e + hT, t + 0.002 + jitY, c + cT, plinthM, 0)
-                        : box(c - cT, t - 0.07 - jitY, s - hT, c + cT, t + 0.002 + jitY, e + hT, plinthM, 0);
-                }
             };
             ops = ops.map(o => [
                 Math.min(o[0], o[1]),
@@ -701,7 +752,7 @@
         ].forEach(([cx, cz, botY, topY]) => cornerLine(cx, cz, botY, topY));
 
         // =========================================================================
-        // 5. TIANG & BALOK COR TERAS DEPAN (TEBAL BALOK = KETEBALAN DINDING 15CM / TH)
+        // 5. TIANG & BALOK COR TERAS DEPAN (TANPA PLINT ABU-ABU)
         // =========================================================================
         [3.0 - hT, 6.125, 9.5 + hT - 0.25].forEach((x) => {
             box(x, Y_DROP, 11.95, x + 0.25, H_TERAS, 12.2, wallM, 0);
@@ -715,7 +766,6 @@
         const TERAS_BEAM_Z1 = 12.2;
         const TERAS_BEAM_Z0 = TERAS_BEAM_Z1 - TH; // 12.05m
         box(3.0 - hT + 0.0002, H_TERAS - TERAS_BEAM_H, TERAS_BEAM_Z0 + 0.0002, 9.5 + hT - 0.0002, H_TERAS - 0.0002, TERAS_BEAM_Z1 - 0.0002, wallM, 0);
-        box(3.0 - hT - 0.01, H_TERAS - 0.07, TERAS_BEAM_Z0 - 0.01, 9.5 + hT + 0.01, H_TERAS + 0.002, TERAS_BEAM_Z1 + 0.01, plinthM, 0);
 
         [
             [3.0 - hT + TH, 6.25 - hT],
@@ -749,24 +799,6 @@
             mesh.rotation.y = Math.PI / 2;
             mesh.position.set(xStart + 0.0003, 0, 0);
             scene.add(mesh);
-
-            const capH = 0.07;
-            const capPadX = 0.01;
-            const cs = new T.Shape();
-            cs.moveTo(-z0, yTop0 - capH);
-            cs.lineTo(-z1, yTop1 - capH);
-            cs.lineTo(-z1, yTop1 + 0.0025);
-            cs.lineTo(-z0, yTop0 + 0.0025);
-            cs.closePath();
-
-            const cGeo = new T.ExtrudeGeometry(cs, {
-                depth: w + capPadX * 2,
-                bevelEnabled: false
-            });
-            const cMesh = new T.Mesh(cGeo, plinthM);
-            cMesh.rotation.y = Math.PI / 2;
-            cMesh.position.set(xStart - capPadX, 0, 0);
-            scene.add(cMesh);
 
             const x0 = xStart, x1 = xStart + w;
             segLine(x0, yTop0, z0, x0, yTop1, z1);
@@ -820,7 +852,139 @@
         D(FRONT_DOOR_X0 + JAMB_T, 9.7, DOOR_CLEAR_W, -32, 0);
 
         // =========================================================================
-        // 7. ATAP GELOMBANG ALA ASBES + NOK BUBUNGAN + PLAFON INTERIOR
+        // 7. RANGKA ATAP KAYU DETAIL & SIMETRIS (DAPAT DIAKTIFKAN / DIMATIKAN)
+        // =========================================================================
+        const timberFrame = new T.Group();
+        scene.add(timberFrame);
+
+        (function buildTimberRoofStructure() {
+            // 7.1 Rangka Kuda-Kuda Utama (Bentang Z = 0 .. 10.2m, Lebar X = 3.0 .. 9.5m)
+            const x0 = 3.0, x1 = 9.5, z0 = 0.0, z1 = 10.2, rh = 1.9, ov = 0.4;
+            const zMid = (z0 + z1) / 2; // 5.10m
+            const halfSpan = z1 - zMid; // 5.10m
+            const halfRoofZ = halfSpan + ov; // 5.50m
+            const slope = rh / halfRoofZ; // 1.9 / 5.5
+            const yApex = H + rh; // 5.40m
+            const yWallUnder = yApex - halfSpan * slope; // ~3.638m (tinggi dudukan kaki kuda-kuda di atas tembok)
+
+            // Balok tembok / murplat (wall plate) memanjang kiri & kanan (x = 3.0 dan x = 9.5)
+            woodBeam([x0, H + 0.04, z0 - hT], [x0, H + 0.04, z1 + hT], 0.12, 0.08, timberMainM);
+            woodBeam([x1, H + 0.04, z0 - hT], [x1, H + 0.04, z1 + hT], 0.12, 0.08, timberMainM);
+
+            // 5 Set Kuda-Kuda Kayu Simetris (posisi X sejajar struktur)
+            const trussXs = [3.08, 4.625, 6.25, 7.875, 9.42];
+            const tieY = H + 0.14; // Balok tarik (tie beam) di atas plafon agar terlihat utuh dari bawah saat atap/plafon dimatikan
+            const kingBotY = tieY + 0.06;
+            const kingTopY = yApex - 0.14;
+
+            for (const tx of trussXs) {
+                // Balok tarik horizontal (tie beam)
+                woodBeam([tx, tieY, z0 + hT], [tx, tieY, z1 - hT], 0.08, 0.12, timberMainM);
+
+                // Tiang kuda-kuda tengah (king post)
+                woodBeam([tx, kingBotY, zMid], [tx, kingTopY, zMid], 0.10, 0.10, timberMainM, timberFrame, [0, 0, 1]);
+
+                // Kaki kuda-kuda miring depan & belakang (principal rafters)
+                const rafterDrop = 0.07;
+                woodBeam(
+                    [tx, yApex - rafterDrop, zMid],
+                    [tx, yWallUnder - rafterDrop, z0 + 0.04],
+                    0.08, 0.12, timberMainM
+                );
+                woodBeam(
+                    [tx, yApex - rafterDrop, zMid],
+                    [tx, yWallUnder - rafterDrop, z1 - 0.04],
+                    0.08, 0.12, timberMainM
+                );
+
+                // Balok sokong / skur miring simetris kiri-kanan (struts)
+                const strutZOff = 2.35;
+                const strutTopY = (yApex - rafterDrop) - strutZOff * slope - 0.03;
+                woodBeam(
+                    [tx, tieY + 0.10, zMid - 0.06],
+                    [tx, strutTopY, zMid - strutZOff],
+                    0.07, 0.09, timberMainM
+                );
+                woodBeam(
+                    [tx, tieY + 0.10, zMid + 0.06],
+                    [tx, strutTopY, zMid + strutZOff],
+                    0.07, 0.09, timberMainM
+                );
+
+                // Balok apit / pengunci tengah (collar tie)
+                const collarZ = 1.65;
+                const collarY = (yApex - rafterDrop) - collarZ * slope - 0.06;
+                woodBeam(
+                    [tx, collarY, zMid - collarZ],
+                    [tx, collarY, zMid + collarZ],
+                    0.07, 0.09, timberMainM
+                );
+            }
+
+            // Balok nok (ridge beam) sepanjang bentang termasuk overstek X
+            woodBeam([x0 - ov, yApex - 0.07, zMid], [x1 + ov, yApex - 0.07, zMid], 0.08, 0.14, timberPurlinM);
+
+            // Gording (purlins) simetris di kedua sisi kemiringan atap utama
+            const purlinOffsets = [1.10, 2.20, 3.30, 4.40, 5.42];
+            for (const dzOff of purlinOffsets) {
+                const py = yApex - dzOff * slope - 0.035;
+                // Sisi belakang (zMid - dzOff)
+                woodBeam([x0 - ov, py, zMid - dzOff], [x1 + ov, py, zMid - dzOff], 0.06, 0.08, timberPurlinM);
+                // Sisi depan (zMid + dzOff)
+                woodBeam([x0 - ov, py, zMid + dzOff], [x1 + ov, py, zMid + dzOff], 0.06, 0.08, timberPurlinM);
+            }
+
+            // 7.2 Rangka Kayu Atap Sayap Kiri & Sayap Kanan
+            function buildWingTimber(roofX0, roofX1, wallX0, wallX1, baseH, count) {
+                // Balok tembok depan & belakang
+                woodBeam([wallX0, baseH + 0.04, 3.0], [wallX1, baseH + 0.04, 3.0], 0.10, 0.08, timberMainM);
+                woodBeam([wallX0, baseH + 0.04, 0.0], [wallX1, baseH + 0.04, 0.0], 0.10, 0.08, timberMainM);
+
+                // Usuk / kasau miring simetris (z = 3.4 -> z = -0.4)
+                const yStart = baseH + 1.32 - 0.045;
+                const yEnd = baseH - 0.045;
+                for (let i = 0; i < count; i++) {
+                    const rx = roofX0 + 0.12 + ((roofX1 - roofX0 - 0.24) * i) / (count - 1);
+                    woodBeam([rx, yStart, 3.4], [rx, yEnd, -0.4], 0.05, 0.08, timberMainM);
+                }
+
+                // Gording melintang di bawah asbes sayap
+                const zPurlins = [3.32, 2.40, 1.48, 0.56, -0.32];
+                for (const pz of zPurlins) {
+                    const frac = (3.4 - pz) / 3.8;
+                    const py = (baseH + 1.32 * (1 - frac)) - 0.025;
+                    woodBeam([roofX0, py, pz], [roofX1, py, pz], 0.05, 0.06, timberPurlinM);
+                }
+            }
+            buildWingTimber(-0.4, 3.0, -hT, 3.0, H_LOW, 6);
+            buildWingTimber(9.5, 11.4, 9.5, 11.0 + hT, H_LOW, 4);
+
+            // 7.3 Rangka Kayu Kanopi Teras Depan (x = 2.6 .. 9.9, z = 9.7 .. 12.6)
+            const cX0 = 3.0 - ov, cX1 = 9.5 + ov;
+            const cZ0 = 9.7, cZ1 = 12.6;
+            const cY0 = 3.44, cY1 = 2.98;
+            const cSlope = (cY0 - cY1) / (cZ1 - cZ0);
+
+            // Balok penyangga dinding belakang kanopi
+            woodBeam([3.0 - hT, cY0 - 0.06, cZ0 + hT], [9.5 + hT, cY0 - 0.06, cZ0 + hT], 0.08, 0.10, timberMainM);
+
+            // 9 Usuk miring kanopi simetris dari kiri ke kanan
+            const canopyRafters = 9;
+            for (let i = 0; i < canopyRafters; i++) {
+                const rx = cX0 + 0.15 + ((cX1 - cX0 - 0.30) * i) / (canopyRafters - 1);
+                woodBeam([rx, cY0 - 0.04, cZ0], [rx, cY1 - 0.04, cZ1], 0.055, 0.08, timberMainM);
+            }
+
+            // 4 Gording melintang kanopi teras
+            const canopyPurlinsZ = [9.82, 10.72, 11.62, 12.50];
+            for (const pz of canopyPurlinsZ) {
+                const py = cY0 - (pz - cZ0) * cSlope - 0.02;
+                woodBeam([cX0, py, pz], [cX1, py, pz], 0.05, 0.06, timberPurlinM);
+            }
+        })();
+
+        // =========================================================================
+        // 8. ATAP GELOMBANG ALA ASBES + NOK BUBUNGAN + PLAFON INTERIOR
         // =========================================================================
         const roofs = new T.Group();
         scene.add(roofs);
@@ -992,7 +1156,7 @@
             roofs.add(edge);
         }
 
-        // 7a. Atap Pelana Utama
+        // 8a. Atap Pelana Utama
         (function buildMainAsbesGable(x0, z0, x1, z1, rh, o) {
             const zMid = (z0 + z1) / 2;
             const halfWallZ = z1 - zMid;
@@ -1026,7 +1190,7 @@
             addAsbesRidge(x0 - o - 0.015, x1 + o + 0.015, zMid, yPeak, slopeRatio);
         })(3.0, 0, 9.5, 10.2, 1.9, 0.4);
 
-        // 7b. Atap Sayap Kiri & Sayap Kanan
+        // 8b. Atap Sayap Kiri & Sayap Kanan
         function wingAsbes(roofX0, roofX1, wallX0, wallX1, baseH) {
             addAsbesSlope(roofX0, roofX1, 3.4, baseH + 1.32, -0.4, baseH);
 
@@ -1052,11 +1216,11 @@
         wingAsbes(-0.4, 3.0, -hT, 3.0, H_LOW);
         wingAsbes(9.5, 11.4, 9.5, 11.0 + hT, H_LOW);
 
-        // 7c. Kanopi Teras Depan
+        // 8c. Kanopi Teras Depan
         addAsbesSlope(3.0 - 0.4, 9.5 + 0.4, 9.7, 3.44, 12.6, 2.98);
 
         // =========================================================================
-        // 8. GARIS UKUR PRESISI STRIP / PUTUS-PUTUS (METER) UNTUK TUKANG
+        // 9. GARIS UKUR PRESISI STRIP / PUTUS-PUTUS (METER) UNTUK TUKANG
         // =========================================================================
         const dims = new T.Group();
         scene.add(dims);
@@ -1178,7 +1342,7 @@
         dimV(3.0, 12.2, Y_DROP, 0, 'Turun 10cm', -1.05, 0);
 
         // =========================================================================
-        // 9. FITUR POV 360° TEPAT DI TENGAH TIAP RUANGAN
+        // 10. FITUR POV 360° TEPAT DI TENGAH TIAP RUANGAN
         // =========================================================================
         const povGroup = new T.Group();
         povGroup.visible = false;
@@ -1414,6 +1578,7 @@
             th = -0.5; ph = 0.9; d = 24; upd();
         };
         r.onclick = () => { roofs.visible = !roofs.visible; r.textContent = roofs.visible ? 'Hilangkan atap' : 'Aktifkan atap'; };
+        k.onclick = () => { timberFrame.visible = !timberFrame.visible; k.textContent = timberFrame.visible ? 'Hilangkan rangka' : 'Aktifkan rangka'; };
         t.onclick = () => {
             if (panoramaMode) togglePanorama(false);
             if (povMode && activeRoom >= 0) activeRoom = -1;
