@@ -925,24 +925,33 @@
         D(FRONT_DOOR_X0 + JAMB_T, 9.7, DOOR_CLEAR_W, -32, 0);
 
         // =========================================================================
-        // 7. RANGKA ATAP KAYU DETAIL & SIMETRIS
+        // 7. RANGKA ATAP KAYU DETAIL & SIMETRIS (PRESISI DI BAWAH LEMBARAN ASBES)
         // =========================================================================
         const timberFrame = new T.Group();
         scene.add(timberFrame);
 
         (function buildTimberRoofStructure() {
+            // 7.1 Atap Pelana Utama (lembaran gelombang berada di antara yBase-0.025 s/d yBase+0.025)
             const x0 = 3.0, x1 = 9.5, z0 = 0.0, z1 = 10.2, rh = 1.9, ov = 0.4;
-            const zMid = (z0 + z1) / 2;
-            const halfSpan = z1 - zMid;
-            const halfRoofZ = halfSpan + ov;
-            const slope = rh / halfRoofZ;
-            const yApex = H + rh;
+            const zMid = (z0 + z1) / 2; // 5.10m
+            const halfSpan = z1 - zMid; // 5.10m
+            const halfRoofZ = halfSpan + ov; // 5.50m
+            const slope = rh / halfRoofZ; // 1.9 / 5.5 (~0.34545)
+            const cosMain = 1 / Math.hypot(1, slope); // ~0.9452
+            const yApex = H + rh; // 5.40m
+
+            // Jarak bersih di bawah gelombang asbes agar gording & usuk tidak pernah menembus lembah gelombang
+            const sheetBottomClear = 0.032 / cosMain; // ~0.034m vertikal
+            const purlinH = 0.08;
+            const purlinCenterDrop = sheetBottomClear + (purlinH * 0.5) / cosMain; // ~0.076m vertikal
 
             const trussXs = [4.625, 6.25, 7.875];
             const tieY = H + 0.05;
-            const rafterDrop = 0.065;
-            const yRafterPeak = yApex - rafterDrop;
-            const yRafterOverhang = H - rafterDrop;
+            // Kaki kuda-kuda berada tepat di bawah gording (tidak menembus gording maupun asbes)
+            const rafterH = 0.11;
+            const rafterCenterDrop = sheetBottomClear + (purlinH + rafterH * 0.5) / cosMain; // ~0.172m vertikal
+            const yRafterPeak = yApex - rafterCenterDrop;
+            const yRafterOverhang = H - rafterCenterDrop;
 
             for (const tx of trussXs) {
                 woodBeam([tx, tieY, z0 - hT], [tx, tieY, z1 + hT], 0.08, 0.10, timberMainM);
@@ -951,12 +960,12 @@
                 woodBeam(
                     [tx, yRafterPeak, zMid],
                     [tx, yRafterOverhang, z0 - ov],
-                    0.08, 0.11, timberMainM
+                    0.08, rafterH, timberMainM
                 );
                 woodBeam(
                     [tx, yRafterPeak, zMid],
                     [tx, yRafterOverhang, z1 + ov],
-                    0.08, 0.11, timberMainM
+                    0.08, rafterH, timberMainM
                 );
 
                 const strutZOff = 2.45;
@@ -981,81 +990,99 @@
                 );
             }
 
-            woodBeam([x0 - ov, yRafterPeak - 0.02, zMid], [x1 + ov, yRafterPeak - 0.02, zMid], 0.08, 0.13, timberPurlinM);
+            // Balok nok (ridge beam) tepat di bawah puncak pertemuan atap
+            woodBeam([x0 - ov, yApex - sheetBottomClear - 0.065, zMid], [x1 + ov, yApex - sheetBottomClear - 0.065, zMid], 0.08, 0.12, timberPurlinM);
 
-            const purlinOffsets = [1.10, 2.20, 3.30, 4.40, 5.44];
+            // Gording atap utama (berada tepat di bawah lembah gelombang asbes)
+            const purlinOffsets = [1.10, 2.20, 3.30, 4.40, 5.42];
             for (const dzOff of purlinOffsets) {
-                const py = yApex - dzOff * slope - 0.035;
-                woodBeam([x0 - ov, py, zMid - dzOff], [x1 + ov, py, zMid - dzOff], 0.06, 0.08, timberPurlinM);
-                woodBeam([x0 - ov, py, zMid + dzOff], [x1 + ov, py, zMid + dzOff], 0.06, 0.08, timberPurlinM);
+                const py = yApex - dzOff * slope - purlinCenterDrop;
+                woodBeam([x0 - ov, py, zMid - dzOff], [x1 + ov, py, zMid - dzOff], 0.06, purlinH, timberPurlinM);
+                woodBeam([x0 - ov, py, zMid + dzOff], [x1 + ov, py, zMid + dzOff], 0.06, purlinH, timberPurlinM);
             }
+
+            // 7.2 Atap Sayap Kiri & Sayap Kanan
+            const wingSlope = 1.32 / 3.8; // ~0.3474
+            const cosWing = 1 / Math.hypot(1, wingSlope);
+            const wingSheetClear = 0.032 / cosWing;
+            const wingPurlinH = 0.06;
+            const wingPurlinDrop = wingSheetClear + (wingPurlinH * 0.5) / cosWing; // ~0.066m
+            const wingRafterH = 0.08;
+            const wingRafterDrop = wingSheetClear + (wingPurlinH + wingRafterH * 0.5) / cosWing; // ~0.140m
 
             function buildWingTimber(roofX0, roofX1, plateX0, plateX1, baseH, rafterXs) {
                 woodBeam([plateX0, H_WING_FRONT - 0.04, 3.0], [plateX1, H_WING_FRONT - 0.04, 3.0], 0.10, 0.08, timberMainM);
                 woodBeam([plateX0, baseH + 0.04, 0.0], [plateX1, baseH + 0.04, 0.0], 0.10, 0.08, timberMainM);
 
-                const yStart = baseH + 1.32 - 0.045;
-                const yEnd = baseH - 0.045;
+                const yStart = baseH + 1.32 - wingRafterDrop;
+                const yEnd = baseH - wingRafterDrop;
                 for (const rx of rafterXs) {
-                    woodBeam([rx, yStart, 3.4], [rx, yEnd, -0.4], 0.055, 0.08, timberMainM);
+                    woodBeam([rx, yStart, 3.4], [rx, yEnd, -0.4], 0.055, wingRafterH, timberMainM);
                 }
 
-                const zPurlins = [3.34, 2.40, 1.48, 0.56, -0.34];
+                const zPurlins = [3.32, 2.40, 1.48, 0.56, -0.32];
                 for (const pz of zPurlins) {
                     const frac = (3.4 - pz) / 3.8;
-                    const py = (baseH + 1.32 * (1 - frac)) - 0.025;
-                    woodBeam([roofX0, py, pz], [roofX1, py, pz], 0.05, 0.06, timberPurlinM);
+                    const py = (baseH + 1.32 * (1 - frac)) - wingPurlinDrop;
+                    woodBeam([roofX0, py, pz], [roofX1, py, pz], 0.05, wingPurlinH, timberPurlinM);
                 }
             }
             buildWingTimber(-0.4, 3.0 - hT, 0.0, 3.0 - hT, H_LOW, [0.75, 1.50, 2.25]);
             buildWingTimber(9.5 + hT, 11.4, 9.5 + hT, 11.0, H_LOW, [10.0, 10.5]);
 
+            // 7.3 Kanopi Teras Depan (rangka berada tepat di bawah gelombang asbes kanopi)
             const cX0 = 3.0 - ov, cX1 = 9.5 + ov;
             const cZStart = 9.7, cZEnd = 12.6;
             const cYStart = 3.44, cYEnd = 2.98;
-            const cSlope = (cYStart - cYEnd) / (cZEnd - cZStart);
+            const cSlope = (cYStart - cYEnd) / (cZEnd - cZStart); // 0.46 / 2.9 (~0.1586)
+            const cosCanopy = 1 / Math.hypot(1, cSlope);
+            const canopySheetClear = 0.032 / cosCanopy;
+            const canopyPurlinH = 0.06;
+            const canopyPurlinDrop = canopySheetClear + (canopyPurlinH * 0.5) / cosCanopy; // ~0.063m
+            const canopyRafterH = 0.08;
+            const canopyRafterDrop = canopySheetClear + (canopyPurlinH + canopyRafterH * 0.5) / cosCanopy; // ~0.134m
 
             const leftLedgerZ = 10.2 + hT;
             const leftLedgerY = cYStart - (leftLedgerZ - cZStart) * cSlope;
             woodBeam(
-                [3.0 - hT, leftLedgerY - 0.05, leftLedgerZ + 0.035],
-                [6.25 - hT, leftLedgerY - 0.05, leftLedgerZ + 0.035],
+                [3.0 - hT, leftLedgerY - canopyRafterDrop - 0.05, leftLedgerZ + 0.035],
+                [6.25 - hT, leftLedgerY - canopyRafterDrop - 0.05, leftLedgerZ + 0.035],
                 0.07, 0.10, timberMainM
             );
 
             const rightLedgerZ = 9.7 + hT;
             const rightLedgerY = cYStart - (rightLedgerZ - cZStart) * cSlope;
             woodBeam(
-                [6.25 + hT, rightLedgerY - 0.05, rightLedgerZ + 0.035],
-                [9.5 + hT, rightLedgerY - 0.05, rightLedgerZ + 0.035],
+                [6.25 + hT, rightLedgerY - canopyRafterDrop - 0.05, rightLedgerZ + 0.035],
+                [9.5 + hT, rightLedgerY - canopyRafterDrop - 0.05, rightLedgerZ + 0.035],
                 0.07, 0.10, timberMainM
             );
 
             const leftCanopyXs = [3.40, 4.20, 5.00, 5.80];
             for (const rx of leftCanopyXs) {
                 woodBeam(
-                    [rx, leftLedgerY - 0.03, leftLedgerZ],
-                    [rx, cYEnd - 0.03, cZEnd],
-                    0.055, 0.08, timberMainM
+                    [rx, leftLedgerY - canopyRafterDrop, leftLedgerZ],
+                    [rx, cYEnd - canopyRafterDrop, cZEnd],
+                    0.055, canopyRafterH, timberMainM
                 );
             }
 
             const rightCanopyXs = [6.70, 7.50, 8.30, 9.10];
             for (const rx of rightCanopyXs) {
                 woodBeam(
-                    [rx, rightLedgerY - 0.03, rightLedgerZ],
-                    [rx, cYEnd - 0.03, cZEnd],
-                    0.055, 0.08, timberMainM
+                    [rx, rightLedgerY - canopyRafterDrop, rightLedgerZ],
+                    [rx, cYEnd - canopyRafterDrop, cZEnd],
+                    0.055, canopyRafterH, timberMainM
                 );
             }
 
-            const pyBackRight = cYStart - (9.86 - cZStart) * cSlope - 0.02;
-            woodBeam([6.25 + hT, pyBackRight, 9.86], [cX1, pyBackRight, 9.86], 0.05, 0.06, timberPurlinM);
+            const pyBackRight = cYStart - (9.88 - cZStart) * cSlope - canopyPurlinDrop;
+            woodBeam([6.25 + hT, pyBackRight, 9.88], [cX1, pyBackRight, 9.88], 0.05, canopyPurlinH, timberPurlinM);
 
-            const fullCanopyPurlinsZ = [10.75, 11.65, 12.52];
+            const fullCanopyPurlinsZ = [10.75, 11.65, 12.50];
             for (const pz of fullCanopyPurlinsZ) {
-                const py = cYStart - (pz - cZStart) * cSlope - 0.02;
-                woodBeam([cX0, py, pz], [cX1, py, pz], 0.05, 0.06, timberPurlinM);
+                const py = cYStart - (pz - cZStart) * cSlope - canopyPurlinDrop;
+                woodBeam([cX0, py, pz], [cX1, py, pz], 0.05, canopyPurlinH, timberPurlinM);
             }
         })();
 
@@ -1242,7 +1269,7 @@
         addAsbesSlope(3.0 - 0.4, 9.5 + 0.4, 9.7, 3.44, 12.6, 2.98);
 
         // =========================================================================
-        // 9. GARIS UKUR PRESISI STRIP / PUTUS-PUTUS (METER) UNTUK TUKANG
+        // 9. GARIS UKUR PRESISI DENGAN KETERANGAN LENGKAP (PANJANG, LEBAR, TINGGI)
         // =========================================================================
         const dims = new T.Group();
         scene.add(dims);
@@ -1256,27 +1283,28 @@
 
         function dimLabel(txt, x, y, z, scale = 0.72) {
             const cv = document.createElement('canvas');
-            cv.width = 256;
+            const w = Math.max(280, txt.length * 22 + 56);
+            cv.width = w;
             cv.height = 96;
             const g = cv.getContext('2d');
-            g.fillStyle = 'rgba(255,255,255,0.92)';
+            g.fillStyle = 'rgba(255,255,255,0.94)';
             g.strokeStyle = '#dc2626';
             g.lineWidth = 5;
             g.beginPath();
-            g.roundRect(14, 16, 228, 64, 14);
+            g.roundRect(12, 16, w - 24, 64, 14);
             g.fill();
             g.stroke();
             g.fillStyle = '#b91c1c';
-            g.font = 'bold 34px system-ui, sans-serif';
+            g.font = 'bold 31px system-ui, sans-serif';
             g.textAlign = 'center';
             g.textBaseline = 'middle';
-            g.fillText(txt, 128, 50);
+            g.fillText(txt, w / 2, 50);
             const sp = new T.Sprite(new T.SpriteMaterial({
                 map: new T.CanvasTexture(cv),
                 depthTest: false
             }));
             sp.position.set(x, y, z);
-            sp.scale.set(scale * 2.2, scale * 0.82, 1);
+            sp.scale.set(scale * (w / 116), scale * 0.82, 1);
             dims.add(sp);
         }
 
@@ -1330,38 +1358,43 @@
             projLines.computeLineDistances();
             dims.add(projLines);
 
-            dimLabel(txt, px + 0.55, (y1 + y2) / 2, pz, 0.75);
+            const labelShiftX = offsetX >= 0 ? 0.68 : -0.68;
+            dimLabel(txt, px + labelShiftX, (y1 + y2) / 2, pz, 0.72);
         }
 
-        dimH(0.0, -0.55, 8.0, -0.55, '8m', [0, 1], [0, -0.35], Y_DROP);
-        dimH(8.0, -0.55, 11.0, -0.55, '3m', [0, 1], [0, -0.35], Y_DROP);
+        // Garis ukur horizontal (Panjang & Lebar ruangan / bangunan)
+        dimH(0.0, -0.55, 8.0, -0.55, 'Panjang 8m', [0, 1], [0, -0.35], Y_DROP);
+        dimH(8.0, -0.55, 11.0, -0.55, 'Lebar 3m', [0, 1], [0, -0.35], Y_DROP);
 
-        dimH(-0.55, 0.0, -0.55, 3.0, '3m', [1, 0], [-0.45, 0], Y_DROP);
-        dimH(11.55, 0.0, 11.55, 3.0, '3m', [1, 0], [0.45, 0], Y_DROP);
-        dimH(0.0, 3.45, 3.0, 3.45, '3m', [0, 1], [0, 0.35], Y_DROP);
-        dimH(9.5, 3.45, 11.0, 3.45, '1.5m', [0, 1], [0, 0.35], Y_DROP);
-        dimH(3.0, 2.55, 9.5, 2.55, '6.5m', [0, 1], [0, -0.32], Y_DROP);
+        dimH(-0.55, 0.0, -0.55, 3.0, 'Lebar 3m', [1, 0], [-0.55, 0], Y_DROP);
+        dimH(11.55, 0.0, 11.55, 3.0, 'Lebar 3m', [1, 0], [0.55, 0], Y_DROP);
+        dimH(0.0, 3.45, 3.0, 3.45, 'Lebar 3m', [0, 1], [0, 0.35], Y_DROP);
+        dimH(9.5, 3.45, 11.0, 3.45, 'Lebar 1.5m', [0, 1], [0, 0.35], Y_DROP);
+        dimH(3.0, 2.55, 9.5, 2.55, 'Panjang 6.5m', [0, 1], [0, -0.32], Y_DROP);
 
-        dimH(2.45, 3.0, 2.45, 10.2, '7.2m', [1, 0], [-0.55, 0], 0);
-        dimH(2.45, 10.2, 2.45, 12.2, '2m', [1, 0], [-0.45, 0], Y_DROP);
-        dimH(10.05, 3.0, 10.05, 9.7, '6.7m', [1, 0], [0.55, 0], 0);
-        dimH(10.05, 9.7, 10.05, 12.2, '2.5m', [1, 0], [0.5, 0], Y_DROP);
-        dimH(3.0, 12.75, 9.5, 12.75, '6.5m', [0, 1], [0, 0.38], Y_DROP);
+        dimH(2.45, 3.0, 2.45, 10.2, 'Panjang 7.2m', [1, 0], [-0.68, 0], 0);
+        dimH(2.45, 10.2, 2.45, 12.2, 'Panjang 2m', [1, 0], [-0.62, 0], Y_DROP);
+        dimH(10.05, 3.0, 10.05, 9.7, 'Panjang 6.7m', [1, 0], [0.68, 0], 0);
+        dimH(10.05, 9.7, 10.05, 12.2, 'Panjang 2.5m', [1, 0], [0.68, 0], Y_DROP);
+        dimH(3.0, 12.75, 9.5, 12.75, 'Lebar 6.5m', [0, 1], [0, 0.38], Y_DROP);
 
-        dimH(5.9, 3.0, 5.9, 7.2, '4.2m', [1, 0], [-0.48, 0], 0);
-        dimH(6.6, 6.0, 6.6, 7.2, '1.25m', [1, 0], [0.52, 0], 0);
-        dimH(9.15, 3.0, 9.15, 6.0, '3m', [1, 0], [-0.38, 0], 0);
-        dimH(9.15, 6.0, 9.15, 9.7, '3.7m', [1, 0], [-0.42, 0], 0);
-        dimH(3.35, 7.2, 3.35, 10.2, '3m', [1, 0], [0.38, 0], 0);
-        dimH(3.0, 10.55, 6.25, 10.55, '3.25m', [0, 1], [0, 0.32], Y_DROP);
-        dimH(6.25, 10.05, 9.5, 10.05, '3.25m', [0, 1], [0, 0.32], Y_DROP);
-        dimH(6.55, 9.7, 6.55, 10.2, '50cm', [1, 0], [0.48, 0], Y_DROP);
+        dimH(5.9, 3.0, 5.9, 7.2, 'Panjang 4.2m', [1, 0], [-0.62, 0], 0);
+        dimH(6.6, 6.0, 6.6, 7.2, 'Lebar 1.2m', [1, 0], [0.62, 0], 0);
+        dimH(9.15, 3.0, 9.15, 6.0, 'Panjang 3m', [1, 0], [-0.55, 0], 0);
+        dimH(9.15, 6.0, 9.15, 9.7, 'Panjang 3.7m', [1, 0], [-0.60, 0], 0);
+        dimH(3.35, 7.2, 3.35, 10.2, 'Panjang 3m', [1, 0], [0.55, 0], 0);
+        dimH(3.0, 10.55, 6.25, 10.55, 'Lebar 3.25m', [0, 1], [0, 0.32], Y_DROP);
+        dimH(6.25, 10.05, 9.5, 10.05, 'Lebar 3.25m', [0, 1], [0, 0.32], Y_DROP);
+        dimH(6.55, 9.7, 6.55, 10.2, 'Panjang 50cm', [1, 0], [0.62, 0], Y_DROP);
 
-        dimV(0.0, 0.0, Y_DROP, H_LOW, 'Tinggi 3m', -0.95, 0);
+        // Garis ukur vertikal (Tinggi dinding, tiang, selisih lantai, dan bubungan)
+        dimV(0.0, 0.0, Y_DROP, H_LOW, 'Tinggi 3m', -0.40, 0);
         dimV(11.0, 3.0, Y_DROP, H_LOW, 'Tinggi 3m', 0.45, 0);
         dimV(9.5, 6.0, 0, H, 'Tinggi 3.5m', 0.45, 0);
-        dimV(9.5, 12.2, Y_DROP, H_TERAS, 'Tiang 3m', 0.45, 0);
-        dimV(3.0, 12.2, Y_DROP, 0, 'Turun 10cm', -1.05, 0);
+        dimV(3.0, 6.0, 0, H, 'Tinggi 3.5m', -0.45, 0);
+        dimV(9.5, 5.1, 0, H + 1.9, 'Tinggi bubungan 5.4m', 1.15, 0);
+        dimV(9.5, 12.2, Y_DROP, H_TERAS, 'Tinggi tiang 3m', 0.45, 0);
+        dimV(3.0, 12.2, Y_DROP, 0, 'Turun lantai 10cm', -0.45, 0);
 
         // =========================================================================
         // 10. FITUR POV 360° TEPAT DI TENGAH TIAP RUANGAN
