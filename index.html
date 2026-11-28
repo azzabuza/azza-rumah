@@ -385,7 +385,7 @@
         }
 
         // =========================================================================
-        // JENDELA JUNGKIT KAYU (TANPA BORDER PUTIH) + VENTILASI ATAS (JARAK 10CM)
+        // JENDELA JUNGKIT KAYU + VENTILASI ATAS (JARAK 10CM)
         // =========================================================================
         function addAwningWindow(hz, s, e, c, yBot, yTop, outDir = 1) {
             const w = e - s;
@@ -651,14 +651,18 @@
         // Jendela kamar kanan (kamar tidur utama): 2 jendela lebar 50cm (0.50m), tinggi 120cm (y = 0.88 s/d 2.08) + ventilasi 50cm
         W(9.5, 3.0, 9.5, 9.7, [[3.90, 4.40, 0.88, 2.08], [4.60, 5.10, 0.88, 2.08]], H, 0, false, 1);
 
-        W(6.25, 3.0, 6.25, 4.98 - hT, [], H, 0);
-        W(6.25, 5.90 + hT, 6.25, 6.0, [], H, 0);
+        // Dinding sekat tengah (pintu kamar utama mepet sisi selatan z = 6.0 - hT = 5.925)
+        const MAIN_BED_DOOR_Z1 = 6.0 - hT;
+        const MAIN_BED_DOOR_Z0 = MAIN_BED_DOOR_Z1 - DOOR_OPEN_SPAN;
+        W(6.25, 3.0, 6.25, MAIN_BED_DOOR_Z0 - hT, [], H, 0);
         W(6.25, 7.2, 6.25, 10.2, [], H, 0);
 
         W(6.25, 6.0, 9.5, 6.0, [], H, 0);
 
-        W(3.0, 7.2, 5.08 - hT, 7.2, [], H, 0);
-        W(6.00 + hT, 7.2, 6.25, 7.2, [], H, 0);
+        // Dinding kamar tidur tamu (pintu mepet dinding pembatas ruang tamu x = 6.25 - hT = 6.175)
+        const GUEST_BED_DOOR_X1 = 6.25 - hT;
+        const GUEST_BED_DOOR_X0 = GUEST_BED_DOOR_X1 - DOOR_OPEN_SPAN;
+        W(3.0, 7.2, GUEST_BED_DOOR_X0 - hT, 7.2, [], H, 0);
 
         // Jendela depan kamar kiri (kamar tidur tamu): 2 jendela lebar 50cm (0.50m), tinggi 1.6m (y = 0.48 s/d 2.08) + ventilasi 50cm
         W(3.0, 10.2, 6.25, 10.2, [[4.025, 4.525, 0.48, 2.08], [4.725, 5.225, 0.48, 2.08]], H, 0, false, 1);
@@ -688,9 +692,9 @@
         // 4-7. Atas pintu bangunan utama
         [
             [3.0, RELAX_DOOR_Z0 + hT, 3.0, RELAX_DOOR_Z1 - hT],
-            [6.25, 4.98 + hT, 6.25, 5.90 - hT],
+            [6.25, MAIN_BED_DOOR_Z0 + hT, 6.25, MAIN_BED_DOOR_Z1 - hT],
             [6.25, 6.0, 6.25, 7.2],
-            [5.08 + hT, 7.2, 6.00 - hT, 7.2],
+            [GUEST_BED_DOOR_X0 + hT, 7.2, GUEST_BED_DOOR_X1 - hT, 7.2],
             [6.45 + hT, 9.7, 7.37 - hT, 9.7]
         ].forEach(a => {
             W(a[0], a[1], a[2], a[3], [], DOOR_VENT_Y0, DOOR_TOP_Y0, true);
@@ -822,13 +826,13 @@
         addDoorFrame(3.0, RELAX_DOOR_Z0, 3.0, RELAX_DOOR_Z1, 0);
         D(3.0, RELAX_DOOR_Z0 + JAMB_T, DOOR_CLEAR_W, 25, 0);
 
-        // 5. Pintu kamar tidur utama (Kayu + Ventilasi Kayu)
-        addDoorFrame(6.25, 4.98, 6.25, 5.90, 0);
-        D(6.25, 5.84, DOOR_CLEAR_W, -25, 0);
+        // 5. Pintu kamar tidur utama - mepet dinding kamar mandi/selatan (Kayu + Ventilasi Kayu)
+        addDoorFrame(6.25, MAIN_BED_DOOR_Z0, 6.25, MAIN_BED_DOOR_Z1, 0);
+        D(6.25, MAIN_BED_DOOR_Z1 - JAMB_T, DOOR_CLEAR_W, -25, 0);
 
-        // 6. Pintu kamar tidur tamu (Kayu + Ventilasi Kayu)
-        addDoorFrame(5.08, 7.2, 6.00, 7.2, 0);
-        D(5.94, 7.2, DOOR_CLEAR_W, 125, 0);
+        // 6. Pintu kamar tidur tamu - mepet dinding pembatas ruang tamu (Kayu + Ventilasi Kayu)
+        addDoorFrame(GUEST_BED_DOOR_X0, 7.2, GUEST_BED_DOOR_X1, 7.2, 0);
+        D(GUEST_BED_DOOR_X1 - JAMB_T, 7.2, DOOR_CLEAR_W, 125, 0);
 
         // 7. Pintu utama ruang tamu dari teras (Kayu + Ventilasi Kayu)
         addDoorFrame(6.45, 9.7, 7.37, 9.7, 0);
