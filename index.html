@@ -689,11 +689,10 @@
         // 3. Atas pintu kamar mandi (TANPA ventilasi)
         W(8.0, BATH_DOOR_Z0 + hT, 8.0, BATH_DOOR_Z1 - hT, [], H, Y_DROP + BATH_DOOR_CLEAR_H + BATH_JAMB_T, true);
 
-        // 4-7. Atas pintu bangunan utama
+        // 4-7. Atas pintu bangunan utama (lorong z = 6.0 s/d 7.2 dibiarkan terbuka plong tanpa palang)
         [
             [3.0, RELAX_DOOR_Z0 + hT, 3.0, RELAX_DOOR_Z1 - hT],
             [6.25, MAIN_BED_DOOR_Z0 + hT, 6.25, MAIN_BED_DOOR_Z1 - hT],
-            [6.25, 6.0, 6.25, 7.2],
             [GUEST_BED_DOOR_X0 + hT, 7.2, GUEST_BED_DOOR_X1 - hT, 7.2],
             [6.45 + hT, 9.7, 7.37 - hT, 9.7]
         ].forEach(a => {
