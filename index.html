@@ -247,7 +247,6 @@
         const aluFrameM = new T.MeshLambertMaterial({ color: 0x9ca3af }); // Kusen aluminium kamar mandi
         const aluDoorM = new T.MeshLambertMaterial({ color: 0xb6bec8 }); // Daun pintu aluminium kamar mandi
         const winSashM = new T.MeshLambertMaterial({ color: 0x854d27 }); // Daun jendela jungkit kayu
-        const winTrimM = new T.MeshLambertMaterial({ color: 0xffffff }); // Lis architrave putih jendela
         const winHardwareM = new T.MeshLambertMaterial({ color: 0x9ca3af }); // Engsel/pengait bawah jendela
         const winM = new T.MeshLambertMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.42, side: T.DoubleSide });
         const edgeM = new T.LineBasicMaterial({ color: 0x22262a });
@@ -386,7 +385,7 @@
         }
 
         // =========================================================================
-        // JENDELA JUNGKIT KAYU DENGAN LIS ARCHITRAVE PUTIH + VENTILASI ATAS (JARAK 10CM)
+        // JENDELA JUNGKIT KAYU (TANPA BORDER PUTIH) + VENTILASI ATAS (JARAK 10CM)
         // =========================================================================
         function addAwningWindow(hz, s, e, c, yBot, yTop, outDir = 1) {
             const w = e - s;
@@ -404,31 +403,19 @@
             scene.add(grp);
 
             const halfW = w / 2;
-            const jambT = 0.038;   // Tebal kusen kayu dalam
-            const trimW = 0.045;   // Lebar lis architrave putih keliling luar
-            const trimD = 0.014;   // Tebal timbul lis putih
-            const depthHalf = hT;
+            const jambT = 0.038;   // Tebal kusen kayu
+            const depthHalf = hT + 0.001;
 
-            // 1. Lis Architrave Putih Luar & Dalam
-            [-1, 1].forEach(side => {
-                const z0 = side > 0 ? depthHalf : -depthHalf - trimD;
-                const z1 = side > 0 ? depthHalf + trimD : -depthHalf;
-                box(-halfW - trimW, h - 0.005, z0, halfW + trimW, h + trimW, z1, winTrimM, 1, grp);
-                box(-halfW - trimW, -trimW, z0, halfW + trimW, 0.005, z1, winTrimM, 1, grp);
-                box(-halfW - trimW, 0, z0, -halfW + 0.005, h, z1, winTrimM, 1, grp);
-                box(halfW - 0.005, 0, z0, halfW + trimW, h, z1, winTrimM, 1, grp);
-            });
-
-            // 2. Kusen Kayu Dalam (lebar s .. e)
+            // 1. Kusen Kayu Jendela rata dinding (lebar s .. e)
             box(-halfW, h - jambT, -depthHalf, halfW, h, depthHalf, frameM, 1, grp);
             box(-halfW, 0, -depthHalf, halfW, jambT, depthHalf, frameM, 1, grp);
             box(-halfW, jambT, -depthHalf, -halfW + jambT, h - jambT, depthHalf, frameM, 1, grp);
             box(halfW - jambT, jambT, -depthHalf, halfW, h - jambT, depthHalf, frameM, 1, grp);
 
-            // 3. Mekanisme Engsel / Pengait Bawah
+            // 2. Mekanisme Engsel / Pengait Bawah
             box(-0.07, jambT, 0.005, 0.07, jambT + 0.022, 0.045, winHardwareM, 1, grp);
 
-            // 4. Daun Jendela Jungkit
+            // 3. Daun Jendela Jungkit
             const sashW = w - jambT * 2 - 0.008;
             const sashH = h - jambT * 2 - 0.008;
             const sashStile = 0.048;
@@ -465,7 +452,7 @@
                 );
             });
 
-            // 5. Pasang Ventilasi Kayu tepat 10cm di atas gawang jendela & lebar sama persis (s .. e)
+            // 4. Pasang Ventilasi Kayu tepat 10cm di atas gawang jendela & lebar sama persis (s .. e)
             const ventY0 = yTop + VENT_GAP;
             const ventY1 = ventY0 + VENT_H;
             if (hz) {
@@ -630,7 +617,6 @@
 
         // =========================================================================
         // 2. DINDING DAPUR, PERKAKAS & KAMAR MANDI
-        // (Semua batas dinding di samping pintu dikurangi/ditambah hT agar lubang gawang bersih)
         // =========================================================================
         W(0, 0, 3.0, 0, [], H_LOW, Y_DROP);
         W(0, 0, 0, 3.0, [], H_LOW, Y_DROP);
@@ -648,7 +634,7 @@
         W(8.0, 1.5, 9.5, 1.5, [], H, Y_DROP);
         W(9.5, 1.5, 11.0, 1.5, [], H_LOW, Y_DROP);
 
-        // Dinding kamar mandi di samping gawang pintu aluminium (bukaan gawang: z = 0.075 s/d 0.865)
+        // Dinding kamar mandi di samping gawang pintu aluminium
         const BATH_DOOR_Z0 = hT;
         const BATH_DOOR_Z1 = BATH_DOOR_Z0 + BATH_OPEN_SPAN;
         W(8.0, BATH_DOOR_Z1 + hT, 8.0, 1.5, [], H, Y_DROP);
@@ -656,7 +642,6 @@
         // =========================================================================
         // 3. DINDING BANGUNAN UTAMA & JENDELA
         // =========================================================================
-        // Pintu dapur ke ruang santai (bukaan gawang: z = 3.075 s/d 3.995)
         const RELAX_DOOR_Z0 = 3.0 + hT;
         const RELAX_DOOR_Z1 = RELAX_DOOR_Z0 + DOOR_OPEN_SPAN;
 
@@ -666,21 +651,18 @@
         // Jendela kamar kanan (kamar tidur utama): 2 jendela lebar 50cm (0.50m), tinggi 120cm (y = 0.88 s/d 2.08) + ventilasi 50cm
         W(9.5, 3.0, 9.5, 9.7, [[3.90, 4.40, 0.88, 2.08], [4.60, 5.10, 0.88, 2.08]], H, 0, false, 1);
 
-        // Dinding sekat tengah (bukaan pintu kamar utama: z = 4.98 s/d 5.90)
         W(6.25, 3.0, 6.25, 4.98 - hT, [], H, 0);
         W(6.25, 5.90 + hT, 6.25, 6.0, [], H, 0);
         W(6.25, 7.2, 6.25, 10.2, [], H, 0);
 
         W(6.25, 6.0, 9.5, 6.0, [], H, 0);
 
-        // Dinding kamar tidur tamu (bukaan pintu: x = 5.08 s/d 6.00)
         W(3.0, 7.2, 5.08 - hT, 7.2, [], H, 0);
         W(6.00 + hT, 7.2, 6.25, 7.2, [], H, 0);
 
         // Jendela depan kamar kiri (kamar tidur tamu): 2 jendela lebar 50cm (0.50m), tinggi 1.6m (y = 0.48 s/d 2.08) + ventilasi 50cm
         W(3.0, 10.2, 6.25, 10.2, [[4.025, 4.525, 0.48, 2.08], [4.725, 5.225, 0.48, 2.08]], H, 0, false, 1);
 
-        // Dinding depan ruang tamu (bukaan pintu utama: x = 6.45 s/d 7.37)
         // Jendela depan ruang tamu: 2 jendela lebar 50cm (0.50m), tinggi 1.6m (y = 0.48 s/d 2.08) + ventilasi 50cm
         W(6.25, 9.7, 6.45 - hT, 9.7, [], H, 0);
         W(7.37 + hT, 9.7, 9.5, 9.7, [[7.90, 8.40, 0.48, 2.08], [8.60, 9.10, 0.48, 2.08]], H, 0, false, 1);
@@ -692,18 +674,18 @@
         const DOOR_VENT_Y0 = DOOR_TOP_Y0 + VENT_GAP;       // 2.16m (jarak 10cm dari atas gawang)
         const DOOR_VENT_Y1 = DOOR_VENT_Y0 + VENT_H;        // 2.41m
 
-        // 1. Atas pintu dapur kiri (sekat dinding 10cm + ventilasi kayu + dinding atas, lebar persis 1.84 .. 2.76)
+        // 1. Atas pintu dapur kiri
         W(1.84 + hT, 3.0, 2.76 - hT, 3.0, [], Y_DROP + DOOR_VENT_Y0, Y_DROP + DOOR_TOP_Y0, true);
         W(1.84 + hT, 3.0, 2.76 - hT, 3.0, [], H_LOW, Y_DROP + DOOR_VENT_Y1, true);
 
-        // 2. Atas pintu area belakang kanan (sekat dinding 10cm + ventilasi kayu + dinding atas, lebar persis 9.74 .. 10.66)
+        // 2. Atas pintu area belakang kanan
         W(9.74 + hT, 3.0, 10.66 - hT, 3.0, [], Y_DROP + DOOR_VENT_Y0, Y_DROP + DOOR_TOP_Y0, true);
         W(9.74 + hT, 3.0, 10.66 - hT, 3.0, [], H_LOW, Y_DROP + DOOR_VENT_Y1, true);
 
-        // 3. Atas pintu kamar mandi (TANPA ventilasi, langsung dinding penuh di atas gawang aluminium)
+        // 3. Atas pintu kamar mandi (TANPA ventilasi)
         W(8.0, BATH_DOOR_Z0 + hT, 8.0, BATH_DOOR_Z1 - hT, [], H, Y_DROP + BATH_DOOR_CLEAR_H + BATH_JAMB_T, true);
 
-        // 4-7. Atas pintu bangunan utama (sekat dinding 10cm + ventilasi kayu + dinding atas, lebar persis gawang)
+        // 4-7. Atas pintu bangunan utama
         [
             [3.0, RELAX_DOOR_Z0 + hT, 3.0, RELAX_DOOR_Z1 - hT],
             [6.25, 4.98 + hT, 6.25, 5.90 - hT],
