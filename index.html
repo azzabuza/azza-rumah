@@ -689,7 +689,7 @@
         // 3. Atas pintu kamar mandi (TANPA ventilasi)
         W(8.0, BATH_DOOR_Z0 + hT, 8.0, BATH_DOOR_Z1 - hT, [], H, Y_DROP + BATH_DOOR_CLEAR_H + BATH_JAMB_T, true);
 
-        // 4-7. Atas pintu bangunan utama (lorong z = 6.0 s/d 7.2 dibiarkan terbuka plong tanpa palang)
+        // 4-7. Atas pintu bangunan utama
         [
             [3.0, RELAX_DOOR_Z0 + hT, 3.0, RELAX_DOOR_Z1 - hT],
             [6.25, MAIN_BED_DOOR_Z0 + hT, 6.25, MAIN_BED_DOOR_Z1 - hT],
@@ -699,6 +699,9 @@
             W(a[0], a[1], a[2], a[3], [], DOOR_VENT_Y0, DOOR_TOP_Y0, true);
             W(a[0], a[1], a[2], a[3], [], H, DOOR_VENT_Y1, true);
         });
+
+        // Balok atas (ring balk) lorong ruang tamu <-> ruang santai (palang bawahnya dihilangkan, bagian atas tetap menyambung)
+        W(6.25, 6.0, 6.25, 7.2, [], H, DOOR_VENT_Y1, true);
 
         [
             [3.0, 0.0, 3.0, 3.0],
