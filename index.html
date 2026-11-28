@@ -82,7 +82,6 @@
         <button id="k">Hilangkan rangka</button>
         <button id="m">Sembunyikan garis</button>
         <button id="v">Aktifkan POV</button>
-        <button id="pan">Aktifkan panorama</button>
     </div>
     <div id="povNav"></div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -641,7 +640,6 @@
         // =========================================================================
         // 2. DINDING DAPUR, PERKAKAS & KAMAR MANDI
         // =========================================================================
-        // Tinggi sisi depan atap sayap (z = 3.0) menanjak hingga H_WING_FRONT agar menutup celah di bawah atap sayap
         const H_WING_FRONT = H_LOW + 1.32 * (3.4 / 3.8) - 0.045; // ~4.036m
 
         W(0, 0, 3.0, 0, [], H_LOW, Y_DROP);
@@ -795,11 +793,10 @@
         // 5B. DINDING GUNUNGAN / GEWEL PADA DINDING LUAR (TANPA GUNUNGAN TENGAH)
         // =========================================================================
         (function buildWallGables() {
-            // 1. Gunungan Atap Utama hanya di sisi dinding luar (x = 3.0 dan x = 9.5; tengah pakai kuda-kuda kayu)
             const z0 = 0.0, z1 = 10.2, rh = 1.9, ov = 0.4;
-            const zMid = (z0 + z1) / 2; // 5.10m
-            const halfWallZ = z1 - zMid; // 5.10m
-            const halfRoofZ = halfWallZ + ov; // 5.50m
+            const zMid = (z0 + z1) / 2;
+            const halfWallZ = z1 - zMid;
+            const halfRoofZ = halfWallZ + ov;
             const slopeRatio = rh / halfRoofZ;
 
             const clearance = 0.045;
@@ -836,8 +833,6 @@
                 });
             });
 
-            // 2. Dinding Gewel Miring Sayap Kiri & Kanan hanya di sisi luar (x = 0.0 dan x = 11.0)
-            // dan pengisi celah segitiga pertemuan di x = 3.0 & x = 9.5 (di atas H = 3.5m hingga atap sayap)
             const clearanceWing = 0.045;
             const yBackOffset = 1.32 * (0.4 / 3.8) - clearanceWing;
             const yFrontOffset = 1.32 * (3.4 / 3.8) - clearanceWing;
@@ -870,9 +865,8 @@
                 });
             });
 
-            // Penutup celah segitiga di atas dinding utama (H = 3.5m s.d. H_WING_FRONT) pada pertemuan sayap x = 3.0 dan x = 9.5
             const wingSlope = 1.32 / 3.8;
-            const zMeet = 3.4 - (H - H_LOW + clearanceWing) / wingSlope; // ~1.54m
+            const zMeet = 3.4 - (H - H_LOW + clearanceWing) / wingSlope;
             const topFillerShape = new T.Shape();
             topFillerShape.moveTo(-zMeet, 0);
             topFillerShape.lineTo(-3.0, 0);
@@ -932,21 +926,19 @@
         D(FRONT_DOOR_X0 + JAMB_T, 9.7, DOOR_CLEAR_W, -32, 0);
 
         // =========================================================================
-        // 7. RANGKA ATAP KAYU DETAIL & SIMETRIS (DI DALAM GUNUNGAN & TERTUMPANG PENUH)
+        // 7. RANGKA ATAP KAYU DETAIL & SIMETRIS
         // =========================================================================
         const timberFrame = new T.Group();
         scene.add(timberFrame);
 
         (function buildTimberRoofStructure() {
-            // 7.1 Rangka Kuda-Kuda Utama di dalam ruang antara gunungan dinding luar (x = 3.0 & x = 9.5)
             const x0 = 3.0, x1 = 9.5, z0 = 0.0, z1 = 10.2, rh = 1.9, ov = 0.4;
-            const zMid = (z0 + z1) / 2; // 5.10m
-            const halfSpan = z1 - zMid; // 5.10m
-            const halfRoofZ = halfSpan + ov; // 5.50m
-            const slope = rh / halfRoofZ; // 1.9 / 5.5
-            const yApex = H + rh; // 5.40m
+            const zMid = (z0 + z1) / 2;
+            const halfSpan = z1 - zMid;
+            const halfRoofZ = halfSpan + ov;
+            const slope = rh / halfRoofZ;
+            const yApex = H + rh;
 
-            // 3 Set Kuda-Kuda Kayu Simetris: bentang kiri (4.625), sumbu tengah (6.25), dan bentang kanan (7.875)
             const trussXs = [4.625, 6.25, 7.875];
             const tieY = H + 0.05;
             const rafterDrop = 0.065;
@@ -954,13 +946,9 @@
             const yRafterOverhang = H - rafterDrop;
 
             for (const tx of trussXs) {
-                // Balok tarik horizontal (tie beam)
                 woodBeam([tx, tieY, z0 - hT], [tx, tieY, z1 + hT], 0.08, 0.10, timberMainM);
-
-                // Tiang kuda-kuda tengah (king post)
                 woodBeam([tx, tieY + 0.05, zMid], [tx, yRafterPeak - 0.04, zMid], 0.10, 0.10, timberMainM, timberFrame, [0, 0, 1]);
 
-                // Kaki kuda-kuda miring (principal rafters) hingga ujung overstek
                 woodBeam(
                     [tx, yRafterPeak, zMid],
                     [tx, yRafterOverhang, z0 - ov],
@@ -972,7 +960,6 @@
                     0.08, 0.11, timberMainM
                 );
 
-                // Balok sokong / skur miring simetris (struts)
                 const strutZOff = 2.45;
                 const strutTopY = yRafterPeak - strutZOff * slope - 0.02;
                 woodBeam(
@@ -986,7 +973,6 @@
                     0.07, 0.09, timberMainM
                 );
 
-                // Balok pengunci / apit horizontal atas (collar tie)
                 const collarZ = 1.75;
                 const collarY = yRafterPeak - collarZ * slope - 0.05;
                 woodBeam(
@@ -996,10 +982,8 @@
                 );
             }
 
-            // Balok nok (ridge beam) menumpu di atas 2 gunungan dinding luar & 3 kuda-kuda
             woodBeam([x0 - ov, yRafterPeak - 0.02, zMid], [x1 + ov, yRafterPeak - 0.02, zMid], 0.08, 0.13, timberPurlinM);
 
-            // Gording (purlins) simetris di kedua sisi kemiringan atap utama
             const purlinOffsets = [1.10, 2.20, 3.30, 4.40, 5.44];
             for (const dzOff of purlinOffsets) {
                 const py = yApex - dzOff * slope - 0.035;
@@ -1007,20 +991,16 @@
                 woodBeam([x0 - ov, py, zMid + dzOff], [x1 + ov, py, zMid + dzOff], 0.06, 0.08, timberPurlinM);
             }
 
-            // 7.2 Rangka Kayu Atap Sayap Kiri & Sayap Kanan (tertutup dinding depan H_WING_FRONT)
             function buildWingTimber(roofX0, roofX1, plateX0, plateX1, baseH, rafterXs) {
-                // Balok tembok / murplat (wall plate) di atas dinding belakang (z = 0.0) & di balik dinding depan (z = 3.0)
                 woodBeam([plateX0, H_WING_FRONT - 0.04, 3.0], [plateX1, H_WING_FRONT - 0.04, 3.0], 0.10, 0.08, timberMainM);
                 woodBeam([plateX0, baseH + 0.04, 0.0], [plateX1, baseH + 0.04, 0.0], 0.10, 0.08, timberMainM);
 
-                // Usuk / kasau miring simetris di dalam ruangan sayap
                 const yStart = baseH + 1.32 - 0.045;
                 const yEnd = baseH - 0.045;
                 for (const rx of rafterXs) {
                     woodBeam([rx, yStart, 3.4], [rx, yEnd, -0.4], 0.055, 0.08, timberMainM);
                 }
 
-                // Gording melintang bertumpu pada dinding gewel luar, usuk sayap, & menumpu ke dinding utama
                 const zPurlins = [3.34, 2.40, 1.48, 0.56, -0.34];
                 for (const pz of zPurlins) {
                     const frac = (3.4 - pz) / 3.8;
@@ -1028,18 +1008,14 @@
                     woodBeam([roofX0, py, pz], [roofX1, py, pz], 0.05, 0.06, timberPurlinM);
                 }
             }
-            // Sayap kiri (x = 0.0 .. 3.0 - hT)
             buildWingTimber(-0.4, 3.0 - hT, 0.0, 3.0 - hT, H_LOW, [0.75, 1.50, 2.25]);
-            // Sayap kanan (x = 9.5 + hT .. 11.0)
             buildWingTimber(9.5 + hT, 11.4, 9.5 + hT, 11.0, H_LOW, [10.0, 10.5]);
 
-            // 7.3 Rangka Kayu Kanopi Teras Depan (TIDAK menembus dinding & ditopang balok penyangga dinding + balok cor teras)
             const cX0 = 3.0 - ov, cX1 = 9.5 + ov;
             const cZStart = 9.7, cZEnd = 12.6;
             const cYStart = 3.44, cYEnd = 2.98;
             const cSlope = (cYStart - cYEnd) / (cZEnd - cZStart);
 
-            // Sisi Kiri Kanopi (x = 3.0 - hT .. 6.25 - hT): menempel pada dinding depan kamar tamu (z = 10.2 + hT)
             const leftLedgerZ = 10.2 + hT;
             const leftLedgerY = cYStart - (leftLedgerZ - cZStart) * cSlope;
             woodBeam(
@@ -1048,7 +1024,6 @@
                 0.07, 0.10, timberMainM
             );
 
-            // Sisi Kanan Kanopi (x = 6.25 + hT .. 9.5 + hT): menempel pada dinding depan ruang tamu (z = 9.7 + hT)
             const rightLedgerZ = 9.7 + hT;
             const rightLedgerY = cYStart - (rightLedgerZ - cZStart) * cSlope;
             woodBeam(
@@ -1251,7 +1226,6 @@
             roofs.add(edge);
         }
 
-        // 8a. Lembaran Atap Pelana Utama + Nok
         (function buildMainAsbesSheets(x0, z0, x1, z1, rh, o) {
             const zMid = (z0 + z1) / 2;
             const halfRoofZ = (z1 - zMid) + o;
@@ -1263,11 +1237,9 @@
             addAsbesRidge(x0 - o - 0.015, x1 + o + 0.015, zMid, yPeak, slopeRatio);
         })(3.0, 0, 9.5, 10.2, 1.9, 0.4);
 
-        // 8b. Lembaran Atap Sayap Kiri & Sayap Kanan
         addAsbesSlope(-0.4, 3.0 - hT, 3.4, H_LOW + 1.32, -0.4, H_LOW);
         addAsbesSlope(9.5 + hT, 11.4, 3.4, H_LOW + 1.32, -0.4, H_LOW);
 
-        // 8c. Lembaran Kanopi Teras Depan
         addAsbesSlope(3.0 - 0.4, 9.5 + 0.4, 9.7, 3.44, 12.6, 2.98);
 
         // =========================================================================
@@ -1467,7 +1439,6 @@
         });
 
         let povMode = false;
-        let panoramaMode = false;
         let activeRoom = -1;
         let povYaw = 0, povPitch = 0, povFov = 75;
         let th = -0.5, ph = 0.9, d = 24;
@@ -1496,7 +1467,6 @@
             povNav.style.display = povMode ? 'flex' : 'none';
 
             if (povMode) {
-                if (panoramaMode) togglePanorama(false);
                 activeRoom = -1;
                 povHotspots.forEach(obj => obj.visible = true);
                 [...povNav.children].forEach(b => b.classList.remove('active'));
@@ -1509,21 +1479,6 @@
                 cam.fov = 50;
                 cam.updateProjectionMatrix();
                 th = -0.5; ph = 0.9; d = 24;
-                upd();
-            }
-        }
-
-        function togglePanorama(forceState) {
-            panoramaMode = typeof forceState === 'boolean' ? forceState : !panoramaMode;
-            pan.textContent = panoramaMode ? 'Matikan panorama' : 'Aktifkan panorama';
-            pan.classList.toggle('active', panoramaMode);
-
-            if (panoramaMode) {
-                if (povMode) togglePOV(false);
-                cam.fov = 50;
-                cam.updateProjectionMatrix();
-                ph = 0.9;
-                d = 24;
                 upd();
             }
         }
@@ -1624,21 +1579,18 @@
         }, { passive: false });
 
         p.onclick = () => {
-            if (panoramaMode) togglePanorama(false);
             if (povMode) togglePOV(false);
             th = -0.5; ph = 0.9; d = 24; upd();
         };
         r.onclick = () => { roofs.visible = !roofs.visible; r.textContent = roofs.visible ? 'Hilangkan atap' : 'Aktifkan atap'; };
         k.onclick = () => { timberFrame.visible = !timberFrame.visible; k.textContent = timberFrame.visible ? 'Hilangkan rangka' : 'Aktifkan rangka'; };
         t.onclick = () => {
-            if (panoramaMode) togglePanorama(false);
             if (povMode && activeRoom >= 0) activeRoom = -1;
             cam.fov = 50; cam.updateProjectionMatrix();
             th = 0; ph = 1.55; d = 24; upd();
         };
         m.onclick = () => { dims.visible = !dims.visible; m.textContent = dims.visible ? 'Sembunyikan garis' : 'Tampilkan garis'; };
         v.onclick = () => togglePOV();
-        pan.onclick = () => togglePanorama();
 
         addEventListener('resize', () => {
             cam.aspect = innerWidth / innerHeight;
@@ -1646,19 +1598,10 @@
             ren.setSize(innerWidth, innerHeight);
         });
 
-        let lastTime = performance.now();
-        (function loop(now) {
+        (function loop() {
             requestAnimationFrame(loop);
-            const dt = Math.min((now - lastTime) / 1000, 0.1);
-            lastTime = now;
-
-            if (panoramaMode && pts.size === 0) {
-                th += dt * 0.35;
-                upd();
-            }
-
             ren.render(scene, cam);
-        })(lastTime);
+        })();
     </script>
 </body>
 
