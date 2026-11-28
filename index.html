@@ -625,11 +625,19 @@
         const RELAX_DOOR_Z0 = 3.0 + hT;
         const RELAX_DOOR_Z1 = RELAX_DOOR_Z0 + DOOR_OPEN_SPAN;
 
-        // Jendela ruang santai: dinding luar samping kiri sampai z=10.2
-        W(3.0, RELAX_DOOR_Z1 + hT, 3.0, 10.2, [[4.95, 5.45, 0.88, 2.08], [5.65, 6.15, 0.88, 2.08]], H, 0, false, -1);
+        // Jendela ruang santai: dinding luar samping kiri dipangkas hT di ujung depan agar plint 0..0.10 tidak menembus sudut luar depan
+        W(3.0, RELAX_DOOR_Z1 + hT, 3.0, 10.2 - hT, [[4.95, 5.45, 0.88, 2.08], [5.65, 6.15, 0.88, 2.08]], H, 0, false, -1);
+        // Segmen sudut luar kiri depan (z = 10.2 - hT .. 10.2) turun sampai Y_DROP dengan plint seragam Y_DROP .. 0.00
+        W(3.0, 10.2 - hT, 3.0, 10.2, [], H, Y_DROP, false, -1, Y_DROP);
+        // Plint bagian dalam kamar tidur tamu di sudut kiri (elevasi lantai dalam 0..0.10)
+        box(3.0 + hT, 0.001, 10.2 - hT * 2, 3.0 + hT + 0.012, 0.101, 10.2 - hT, plinthM, 0);
 
-        // Jendela kamar kanan (kamar tidur utama): dinding luar samping kanan sampai z=9.7
-        W(9.5, 3.0, 9.5, 9.7, [[3.90, 4.40, 0.88, 2.08], [4.60, 5.10, 0.88, 2.08]], H, 0, false, 1);
+        // Jendela kamar kanan (kamar tidur utama): dinding luar samping kanan dipangkas hT di ujung depan agar plint 0..0.10 tidak menembus sudut luar depan
+        W(9.5, 3.0, 9.5, 9.7 - hT, [[3.90, 4.40, 0.88, 2.08], [4.60, 5.10, 0.88, 2.08]], H, 0, false, 1);
+        // Segmen sudut luar kanan depan (z = 9.7 - hT .. 9.7) turun sampai Y_DROP dengan plint seragam Y_DROP .. 0.00
+        W(9.5, 9.7 - hT, 9.5, 9.7, [], H, Y_DROP, false, 1, Y_DROP);
+        // Plint bagian dalam ruang tamu di sudut kanan (elevasi lantai dalam 0..0.10)
+        box(9.5 - hT - 0.012, 0.001, 9.7 - hT * 2, 9.5 - hT, 0.101, 9.7 - hT, plinthM, 0);
 
         // Dinding sekat tengah (pintu kamar utama mepet sisi selatan z = 6.0 - hT = 5.925)
         const MAIN_BED_DOOR_Z1 = 6.0 - hT;
@@ -641,6 +649,8 @@
         W(6.25, 7.2 + hT, 6.25, 9.7 - hT, [], H, 0, false, 1, 0);
         // - Bagian luar menonjol di teras (z = 9.7 - hT .. 10.2) dasar dinding Y_DROP, plint seragam 10cm dari lantai teras (Y_DROP .. 0.00)
         W(6.25, 9.7 - hT, 6.25, 10.2, [], H, Y_DROP, false, 1, Y_DROP);
+        // Plint bagian dalam kamar tidur tamu di sudut kanan (z = 9.7 - hT .. 10.2 - hT, elevasi 0..0.10)
+        box(6.25 - hT - 0.012, 0.001, 9.7 - hT, 6.25 - hT, 0.101, 10.2 - hT, plinthM, 0);
 
         // Dinding pemisah kamar utama & ruang tamu: ujung kiri dipangkas hT agar plint tidak menonjol ke lorong
         W(6.25 + hT, 6.0, 9.5, 6.0, [], H, 0);
