@@ -447,7 +447,7 @@
 
         let wallOrder = 0;
         // Format ops jendela: [start, end, yBot (opsional, default 0.72), yTop (opsional, default 2.08)]
-        // plinthTopY: tinggi permukaan lantai sisi luar tempat plint menempel (default = y0)
+        // plinthTopY: tinggi permukaan lantai referensi tempat plint berdiri (default = y0)
         function W(x1, z1, x2, z2, ops = [], h = H, y0 = 0, isBeam = false, winOutDir = 1, plinthTopY = y0) {
             const wIdx = ++wallOrder;
             const jitY = wIdx * 0.00008;
@@ -589,7 +589,7 @@
         floorSlab(3.0 - hT, -0.35, 10.2, 6.25, Y_DROP, 12.2);
         floorSlab(6.25, -0.35, 9.7, 9.5 + hT, Y_DROP, 12.2);
 
-        // Lis pinggiran drop-off lantai teras & ambang pintu ruang santai
+        // Lis keramik pinggiran drop-off lantai teras & ambang pintu ruang santai
         box(3.0 - hT, Y_DROP, 10.2 + hT - 0.01, 6.25 + hT, -0.0005, 10.2 + hT + 0.01, plinthM, 0);
         box(6.25 - hT, Y_DROP, 9.7 + hT - 0.01, 9.5 + hT, -0.0005, 9.7 + hT + 0.01, plinthM, 0);
         box(3.0 - hT - 0.015, Y_DROP, 3.0, 3.0 - hT, -0.0005, 3.0 + hT + DOOR_OPEN_SPAN, plinthM, 0);
@@ -625,7 +625,7 @@
         const RELAX_DOOR_Z0 = 3.0 + hT;
         const RELAX_DOOR_Z1 = RELAX_DOOR_Z0 + DOOR_OPEN_SPAN;
 
-        // Jendela ruang santai: dinding luar samping kiri sampai z=10.2 (plint rata lantai utama y=0)
+        // Jendela ruang santai: dinding luar samping kiri sampai z=10.2
         W(3.0, RELAX_DOOR_Z1 + hT, 3.0, 10.2, [[4.95, 5.45, 0.88, 2.08], [5.65, 6.15, 0.88, 2.08]], H, 0, false, -1);
 
         // Jendela kamar kanan (kamar tidur utama): dinding luar samping kanan sampai z=9.7
@@ -635,8 +635,12 @@
         const MAIN_BED_DOOR_Z1 = 6.0 - hT;
         const MAIN_BED_DOOR_Z0 = MAIN_BED_DOOR_Z1 - DOOR_OPEN_SPAN;
         W(6.25, 3.0, 6.25, MAIN_BED_DOOR_Z0 - hT, [], H, 0);
-        // Dinding sekat tengah bagian depan: diteruskan sampai z=10.2 dengan dasar Y_DROP agar menutup penuh sudut kiri teras
-        W(6.25, 7.2 + hT, 6.25, 10.2, [], H, Y_DROP, false, 1, 0);
+
+        // Dinding sekat tengah bagian depan:
+        // - Dalam ruangan (z = 7.2 + hT .. 9.7 - hT) dasar dinding y=0, plint dalam y=0..0.10
+        W(6.25, 7.2 + hT, 6.25, 9.7 - hT, [], H, 0, false, 1, 0);
+        // - Bagian luar menonjol di teras (z = 9.7 - hT .. 10.2) dasar dinding Y_DROP, plint seragam 10cm dari lantai teras (Y_DROP .. 0.00)
+        W(6.25, 9.7 - hT, 6.25, 10.2, [], H, Y_DROP, false, 1, Y_DROP);
 
         // Dinding pemisah kamar utama & ruang tamu: ujung kiri dipangkas hT agar plint tidak menonjol ke lorong
         W(6.25 + hT, 6.0, 9.5, 6.0, [], H, 0);
@@ -646,17 +650,17 @@
         const GUEST_BED_DOOR_X0 = GUEST_BED_DOOR_X1 - DOOR_OPEN_SPAN;
         W(3.0, 7.2, GUEST_BED_DOOR_X0 - hT, 7.2, [], H, 0);
 
-        // Jendela depan kamar kiri (kamar tidur tamu): dasar dinding turun ke Y_DROP, plint luar rata lantai teras (Y_DROP)
+        // Jendela depan kamar kiri (kamar tidur tamu): dasar dinding turun ke Y_DROP, plint luar rata lantai teras (Y_DROP .. 0.00)
         W(3.0, 10.2, 6.25, 10.2, [[4.025, 4.525, 0.48, 2.08], [4.725, 5.225, 0.48, 2.08]], H, Y_DROP, false, 1, Y_DROP);
-        // Plint bagian dalam kamar tidur tamu (pada elevasi lantai dalam y=0)
-        box(3.0 + hT, 0.001, 10.2 - hT - 0.012, 6.25 - hT, 0.101, 10.2, plinthM, 0);
+        // Plint bagian dalam kamar tidur tamu (dibatasi ketat di sisi dalam z <= 10.2 - hT agar tidak tembus ke luar)
+        box(3.0 + hT, 0.001, 10.2 - hT - 0.012, 6.25 - hT, 0.101, 10.2 - hT, plinthM, 0);
 
         // Jendela depan ruang tamu: pintu utama mepet dinding kiri (x = 6.25 + hT = 6.325), dasar dinding turun ke Y_DROP
         const FRONT_DOOR_X0 = 6.25 + hT;
         const FRONT_DOOR_X1 = FRONT_DOOR_X0 + DOOR_OPEN_SPAN;
         W(FRONT_DOOR_X1 + hT, 9.7, 9.5, 9.7, [[7.735, 8.235, 0.48, 2.08], [8.435, 8.935, 0.48, 2.08]], H, Y_DROP, false, 1, Y_DROP);
-        // Plint bagian dalam ruang tamu (pada elevasi lantai dalam y=0)
-        box(FRONT_DOOR_X1, 0.001, 9.7 - hT - 0.012, 9.5 - hT, 0.101, 9.7, plinthM, 0);
+        // Plint bagian dalam ruang tamu (dibatasi ketat di sisi dalam z <= 9.7 - hT agar tidak tembus ke luar)
+        box(FRONT_DOOR_X1, 0.001, 9.7 - hT - 0.012, 9.5 - hT, 0.101, 9.7 - hT, plinthM, 0);
 
         // =========================================================================
         // 4. BALOK DINDING DI ATAS GAWANG PINTU & VENTILASI (JARAK 10CM), RING BALK & GARIS SIKU
