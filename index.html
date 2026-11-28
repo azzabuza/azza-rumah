@@ -718,7 +718,7 @@
 
         [
             [0 + hT, 0 + hT, Y_DROP, H_LOW], [0 + hT, 3.0 - hT, Y_DROP, H_WING_FRONT],
-            [8.0 - hT, 0 + hT, Y_DROP, H], [11.0 - hT, 3.0 - hT, Y_DROP, H_WING_FRONT], [11.0 - hT, 1.5 + hT, Y_DROP, H_LOW],
+            [8.0 - hT, 0 + hT, Y_DROP, H], [8.0 - hT, 1.5 + hT, Y_DROP, H], [11.0 - hT, 3.0 - hT, Y_DROP, H_WING_FRONT], [11.0 - hT, 1.5 + hT, Y_DROP, H_LOW],
             [8.0 + hT, 0 + hT, Y_DROP, H], [11.0 - hT, 0 + hT, Y_DROP, H_LOW], [8.0 + hT, 1.5 - hT, Y_DROP, H], [11.0 - hT, 1.5 - hT, Y_DROP, H_LOW],
             [3.0 + hT, 3.0 + hT, 0, H], [6.25 - hT, 3.0 + hT, 0, H], [3.0 + hT, 7.2 - hT, 0, H], [6.25 - hT, 7.2 - hT, 0, H],
             [6.25 + hT, 3.0 + hT, 0, H], [9.5 - hT, 3.0 + hT, 0, H], [6.25 + hT, 6.0 - hT, 0, H], [9.5 - hT, 6.0 - hT, 0, H],
@@ -1011,7 +1011,7 @@
             const wingRafterDrop = wingSheetClear + (wingPurlinH + wingRafterH * 0.5) / cosWing; // ~0.140m
 
             function buildWingTimber(roofX0, roofX1, plateX0, plateX1, baseH, rafterXs) {
-                woodBeam([plateX0, H_WING_FRONT - 0.04, 3.0], [plateX1, H_WING_FRONT - 0.04, 3.0], 0.10, 0.08, timberMainM);
+                woodBeam([plateX0, H_WING_FRONT - 0.045, 3.0], [plateX1, H_WING_FRONT - 0.045, 3.0], 0.10, 0.08, timberMainM);
                 woodBeam([plateX0, baseH + 0.04, 0.0], [plateX1, baseH + 0.04, 0.0], 0.10, 0.08, timberMainM);
 
                 const yStart = baseH + 1.32 - wingRafterDrop;
