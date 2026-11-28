@@ -667,9 +667,10 @@
         // Jendela depan kamar kiri (kamar tidur tamu): 2 jendela lebar 50cm (0.50m), tinggi 1.6m (y = 0.48 s/d 2.08) + ventilasi 50cm
         W(3.0, 10.2, 6.25, 10.2, [[4.025, 4.525, 0.48, 2.08], [4.725, 5.225, 0.48, 2.08]], H, 0, false, 1);
 
-        // Jendela depan ruang tamu: 2 jendela lebar 50cm (0.50m), tinggi 1.6m (y = 0.48 s/d 2.08) + ventilasi 50cm
-        W(6.25, 9.7, 6.45 - hT, 9.7, [], H, 0);
-        W(7.37 + hT, 9.7, 9.5, 9.7, [[7.90, 8.40, 0.48, 2.08], [8.60, 9.10, 0.48, 2.08]], H, 0, false, 1);
+        // Jendela depan ruang tamu: pintu utama mepet dinding kiri (x = 6.25 + hT = 6.325), 2 jendela lebar 50cm presisi di tengah sisa dinding kanan
+        const FRONT_DOOR_X0 = 6.25 + hT;
+        const FRONT_DOOR_X1 = FRONT_DOOR_X0 + DOOR_OPEN_SPAN;
+        W(FRONT_DOOR_X1 + hT, 9.7, 9.5, 9.7, [[7.735, 8.235, 0.48, 2.08], [8.435, 8.935, 0.48, 2.08]], H, 0, false, 1);
 
         // =========================================================================
         // 4. BALOK DINDING DI ATAS GAWANG PINTU & VENTILASI (JARAK 10CM), RING BALK & GARIS SIKU
@@ -694,7 +695,7 @@
             [3.0, RELAX_DOOR_Z0 + hT, 3.0, RELAX_DOOR_Z1 - hT],
             [6.25, MAIN_BED_DOOR_Z0 + hT, 6.25, MAIN_BED_DOOR_Z1 - hT],
             [GUEST_BED_DOOR_X0 + hT, 7.2, GUEST_BED_DOOR_X1 - hT, 7.2],
-            [6.45 + hT, 9.7, 7.37 - hT, 9.7]
+            [FRONT_DOOR_X0 + hT, 9.7, FRONT_DOOR_X1 - hT, 9.7]
         ].forEach(a => {
             W(a[0], a[1], a[2], a[3], [], DOOR_VENT_Y0, DOOR_TOP_Y0, true);
             W(a[0], a[1], a[2], a[3], [], H, DOOR_VENT_Y1, true);
@@ -838,9 +839,9 @@
         addDoorFrame(GUEST_BED_DOOR_X0, 7.2, GUEST_BED_DOOR_X1, 7.2, 0);
         D(GUEST_BED_DOOR_X1 - JAMB_T, 7.2, DOOR_CLEAR_W, 125, 0);
 
-        // 7. Pintu utama ruang tamu dari teras (Kayu + Ventilasi Kayu)
-        addDoorFrame(6.45, 9.7, 7.37, 9.7, 0);
-        D(6.51, 9.7, DOOR_CLEAR_W, -32, 0);
+        // 7. Pintu utama ruang tamu dari teras - mepet dinding kiri (Kayu + Ventilasi Kayu)
+        addDoorFrame(FRONT_DOOR_X0, 9.7, FRONT_DOOR_X1, 9.7, 0);
+        D(FRONT_DOOR_X0 + JAMB_T, 9.7, DOOR_CLEAR_W, -32, 0);
 
         // =========================================================================
         // 7. ATAP GELOMBANG ALA ASBES + NOK BUBUNGAN + PLAFON INTERIOR
