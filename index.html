@@ -645,18 +645,21 @@
         const WING_PURLIN_H = 0.06;
         const WING_RAFTER_H = 0.08;
         const WING_RAFTER_DROP = WING_SHEET_CLEAR + (WING_PURLIN_H + WING_RAFTER_H * 0.5) / COS_WING;
-        const H_WING_FRONT = H_LOW + 1.32 - WING_RAFTER_DROP - WING_RAFTER_H / 2;
+        const WING_RAFTER_HALF_V = (WING_RAFTER_H * 0.5) / COS_WING;
+        // Tembok depan sayap diturunkan tepat di bawah kasau agar kasau menumpang di atas tembok
+        const H_WING_FRONT = (H_LOW + 1.32 - WING_RAFTER_DROP) - 0.4 * WING_SLOPE - WING_RAFTER_HALF_V;
+        const H_WING_BACK = (H_LOW - WING_RAFTER_DROP) + 0.4 * WING_SLOPE - WING_RAFTER_HALF_V;
 
-        W(0, 0, 3.0, 0, [], H_LOW, Y_DROP);
-        W(0, 0, 0, 3.0, [], H_LOW, Y_DROP);
+        W(0, 0, 3.0, 0, [], H_WING_BACK, Y_DROP);
+        W(0, 0, 0, 3.0, [], H_WING_BACK, Y_DROP);
         W(0, 3.0, 1.84 - hT, 3.0, [], H_WING_FRONT, Y_DROP);
         W(2.76 + hT, 3.0, 3.0, 3.0, [], H_WING_FRONT, Y_DROP);
 
         W(3.0, 0, 9.5, 0, [], H, Y_DROP);
         W(3.0, 3.0, 9.5, 3.0, [], H, Y_DROP);
 
-        W(9.5, 0, 11.0, 0, [], H_LOW, Y_DROP);
-        W(11.0, 0, 11.0, 3.0, [], H_LOW, Y_DROP);
+        W(9.5, 0, 11.0, 0, [], H_WING_BACK, Y_DROP);
+        W(11.0, 0, 11.0, 3.0, [], H_WING_BACK, Y_DROP);
         W(9.5, 3.0, 9.74 - hT, 3.0, [], H_WING_FRONT, Y_DROP);
         W(10.66 + hT, 3.0, 11.0, 3.0, [], H_WING_FRONT, Y_DROP);
 
@@ -723,14 +726,14 @@
         ].forEach(b => W(b[0], b[1], b[2], b[3], [], H, 3.15, true));
 
         [
-            [0 + hT, 0 + hT, Y_DROP, H_LOW], [0 + hT, 3.0 - hT, Y_DROP, H_WING_FRONT],
+            [0 + hT, 0 + hT, Y_DROP, H_WING_BACK], [0 + hT, 3.0 - hT, Y_DROP, H_WING_FRONT],
             [8.0 - hT, 0 + hT, Y_DROP, H], [8.0 - hT, 1.5 + hT, Y_DROP, H], [11.0 - hT, 3.0 - hT, Y_DROP, H_WING_FRONT], [11.0 - hT, 1.5 + hT, Y_DROP, H_LOW],
-            [8.0 + hT, 0 + hT, Y_DROP, H], [11.0 - hT, 0 + hT, Y_DROP, H_LOW], [8.0 + hT, 1.5 - hT, Y_DROP, H], [11.0 - hT, 1.5 - hT, Y_DROP, H_LOW],
+            [8.0 + hT, 0 + hT, Y_DROP, H], [11.0 - hT, 0 + hT, Y_DROP, H_WING_BACK], [8.0 + hT, 1.5 - hT, Y_DROP, H], [11.0 - hT, 1.5 - hT, Y_DROP, H_LOW],
             [3.0 + hT, 3.0 + hT, 0, H], [6.25 - hT, 3.0 + hT, 0, H], [3.0 + hT, 7.2 - hT, 0, H], [6.25 - hT, 7.2 - hT, 0, H],
             [6.25 + hT, 3.0 + hT, 0, H], [9.5 - hT, 3.0 + hT, 0, H], [6.25 + hT, 6.0 - hT, 0, H], [9.5 - hT, 6.0 - hT, 0, H],
             [3.0 + hT, 7.2 + hT, 0, H], [6.25 - hT, 7.2 + hT, 0, H], [3.0 + hT, 10.2 - hT, 0, H], [6.25 - hT, 10.2 - hT, 0, H],
             [6.25 + hT, 6.0 + hT, 0, H], [9.5 - hT, 6.0 + hT, 0, H], [6.25 + hT, 9.7 - hT, 0, H], [9.5 - hT, 9.7 - hT, 0, H],
-            [-hT, -hT, Y_DROP, H_LOW], [-hT, 3.0 + hT, Y_DROP, H_WING_FRONT], [11.0 + hT, -hT, Y_DROP, H_LOW], [11.0 + hT, 3.0 + hT, Y_DROP, H_WING_FRONT],
+            [-hT, -hT, Y_DROP, H_WING_BACK], [-hT, 3.0 + hT, Y_DROP, H_WING_FRONT], [11.0 + hT, -hT, Y_DROP, H_WING_BACK], [11.0 + hT, 3.0 + hT, Y_DROP, H_WING_FRONT],
             [3.0 - hT, 10.2 + hT, Y_DROP, H], [6.25 + hT, 10.2 + hT, Y_DROP, H], [6.25 + hT, 9.7 + hT, Y_DROP, H], [9.5 + hT, 9.7 + hT, Y_DROP, H]
         ].forEach(([cx, cz, botY, topY]) => cornerLine(cx, cz, botY, topY));
 
@@ -838,15 +841,12 @@
                 });
             });
 
-            const clearanceWing = 0.045;
-            const yBackOffset = 1.32 * (0.4 / 3.8) - clearanceWing;
-            const yFrontOffset = H_WING_FRONT - H_LOW;
+            const yFrontOffset = H_WING_FRONT - H_WING_BACK;
 
             const wShape = new T.Shape();
             wShape.moveTo(0, 0);
             wShape.lineTo(-3.0, 0);
             wShape.lineTo(-3.0, Math.max(0.01, yFrontOffset));
-            wShape.lineTo(0, Math.max(0.01, yBackOffset));
             wShape.closePath();
 
             const wGeo = new T.ExtrudeGeometry(wShape, {
@@ -857,21 +857,19 @@
             [0.0, 11.0].forEach(wx => {
                 const wMesh = new T.Mesh(wGeo, wallM);
                 wMesh.rotation.y = Math.PI / 2;
-                wMesh.position.set(wx - hT + 0.0002, H_LOW - 0.001, 0);
+                wMesh.position.set(wx - hT + 0.0002, H_WING_BACK - 0.001, 0);
                 scene.add(wMesh);
 
                 const xL = wx - hT, xR = wx + hT;
-                const yB = H_LOW + Math.max(0.01, yBackOffset);
-                const yF = H_LOW + Math.max(0.01, yFrontOffset);
+                const yB = H_WING_BACK;
+                const yF = H_WING_BACK + Math.max(0.01, yFrontOffset);
                 [xL, xR].forEach(xEdge => {
-                    segLine(xEdge, H_LOW, 0, xEdge, yB, 0);
-                    segLine(xEdge, H_LOW, 3.0, xEdge, yF, 3.0);
+                    segLine(xEdge, H_WING_BACK, 3.0, xEdge, yF, 3.0);
                     segLine(xEdge, yB, 0, xEdge, yF, 3.0);
                 });
             });
 
-            const wingSlope = 1.32 / 3.8;
-            const zMeet = 3.4 - (H - H_LOW + clearanceWing) / wingSlope;
+            const zMeet = 3.0 - (H_WING_FRONT - H) / WING_SLOPE;
             const topFillerShape = new T.Shape();
             topFillerShape.moveTo(-zMeet, 0);
             topFillerShape.lineTo(-3.0, 0);
@@ -1007,8 +1005,7 @@
                 woodBeam([x0 - ov, py, zMid + dzOff], [x1 + ov, py, zMid + dzOff], 0.06, purlinH, timberPurlinM);
             }
 
-            // 7.2 Atap Sayap Kiri & Sayap Kanan
-            const wingSlope = WING_SLOPE;
+            // 7.2 Atap Sayap Kiri & Sayap Kanan (kasau ditumpangkan langsung ke atas tembok depan & belakang)
             const cosWing = COS_WING;
             const wingSheetClear = WING_SHEET_CLEAR;
             const wingPurlinH = WING_PURLIN_H;
@@ -1016,10 +1013,7 @@
             const wingRafterH = WING_RAFTER_H;
             const wingRafterDrop = WING_RAFTER_DROP; // ~0.140m
 
-            function buildWingTimber(roofX0, roofX1, plateX0, plateX1, baseH, rafterXs) {
-                woodBeam([plateX0, H_WING_FRONT + 0.04, 3.0], [plateX1, H_WING_FRONT + 0.04, 3.0], 0.10, 0.08, timberMainM);
-                woodBeam([plateX0, baseH + 0.04, 0.0], [plateX1, baseH + 0.04, 0.0], 0.10, 0.08, timberMainM);
-
+            function buildWingTimber(roofX0, roofX1, baseH, rafterXs) {
                 const yStart = baseH + 1.32 - wingRafterDrop;
                 const yEnd = baseH - wingRafterDrop;
                 for (const rx of rafterXs) {
@@ -1033,10 +1027,10 @@
                     woodBeam([roofX0, py, pz], [roofX1, py, pz], 0.05, wingPurlinH, timberPurlinM);
                 }
             }
-            buildWingTimber(-0.4, 3.0 - hT, 0.0, 3.0 - hT, H_LOW, [0.75, 1.50, 2.25]);
-            buildWingTimber(9.5 + hT, 11.4, 9.5 + hT, 11.0, H_LOW, [10.0, 10.5]);
+            buildWingTimber(-0.4, 3.0 - hT, H_LOW, [0.75, 1.50, 2.25]);
+            buildWingTimber(9.5 + hT, 11.4, H_LOW, [10.0, 10.5]);
 
-            // 7.3 Kanopi Teras Depan (rangka berada tepat di bawah gelombang asbes kanopi)
+            // 7.3 Kanopi Teras Depan (kasau ditumpangkan langsung ke tembok depan tanpa balok ditanam)
             const cX0 = 3.0 - ov, cX1 = 9.5 + ov;
             const cZStart = 9.7, cZEnd = 12.6;
             const cYStart = 3.44, cYEnd = 2.98;
@@ -1048,21 +1042,11 @@
             const canopyRafterH = 0.08;
             const canopyRafterDrop = canopySheetClear + (canopyPurlinH + canopyRafterH * 0.5) / cosCanopy; // ~0.134m
 
-            const leftLedgerZ = 10.2 + hT;
+            const leftLedgerZ = 10.2;
             const leftLedgerY = cYStart - (leftLedgerZ - cZStart) * cSlope;
-            woodBeam(
-                [3.0 - hT, leftLedgerY - canopyRafterDrop - 0.05, leftLedgerZ + 0.035],
-                [6.25 - hT, leftLedgerY - canopyRafterDrop - 0.05, leftLedgerZ + 0.035],
-                0.07, 0.10, timberMainM
-            );
 
-            const rightLedgerZ = 9.7 + hT;
+            const rightLedgerZ = 9.7;
             const rightLedgerY = cYStart - (rightLedgerZ - cZStart) * cSlope;
-            woodBeam(
-                [6.25 + hT, rightLedgerY - canopyRafterDrop - 0.05, rightLedgerZ + 0.035],
-                [9.5 + hT, rightLedgerY - canopyRafterDrop - 0.05, rightLedgerZ + 0.035],
-                0.07, 0.10, timberMainM
-            );
 
             const leftCanopyXs = [3.40, 4.20, 5.00, 5.80];
             for (const rx of leftCanopyXs) {
