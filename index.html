@@ -77,7 +77,6 @@
 <body>
     <div id="ui">
         <button id="p">Perspektif</button>
-        <button id="t">Tampak atas</button>
         <button id="r">Hilangkan atap</button>
         <button id="k">Hilangkan rangka</button>
         <button id="m">Sembunyikan garis</button>
@@ -1441,7 +1440,7 @@
         let povMode = false;
         let activeRoom = -1;
         let povYaw = 0, povPitch = 0, povFov = 75;
-        let th = -0.5, ph = 0.9, d = 24;
+        let th = 0.5, ph = 0.9, d = 24;
         const tg = new T.Vector3(5.5, 0, 6.1);
 
         function enterRoomPOV(idx) {
@@ -1478,7 +1477,7 @@
                 activeRoom = -1;
                 cam.fov = 50;
                 cam.updateProjectionMatrix();
-                th = -0.5; ph = 0.9; d = 24;
+                th = 0.5; ph = 0.9; d = 24;
                 upd();
             }
         }
@@ -1580,15 +1579,10 @@
 
         p.onclick = () => {
             if (povMode) togglePOV(false);
-            th = -0.5; ph = 0.9; d = 24; upd();
+            th = 0.5; ph = 0.9; d = 24; upd();
         };
         r.onclick = () => { roofs.visible = !roofs.visible; r.textContent = roofs.visible ? 'Hilangkan atap' : 'Aktifkan atap'; };
         k.onclick = () => { timberFrame.visible = !timberFrame.visible; k.textContent = timberFrame.visible ? 'Hilangkan rangka' : 'Aktifkan rangka'; };
-        t.onclick = () => {
-            if (povMode && activeRoom >= 0) activeRoom = -1;
-            cam.fov = 50; cam.updateProjectionMatrix();
-            th = 0; ph = 1.55; d = 24; upd();
-        };
         m.onclick = () => { dims.visible = !dims.visible; m.textContent = dims.visible ? 'Sembunyikan garis' : 'Tampilkan garis'; };
         v.onclick = () => togglePOV();
 
