@@ -722,7 +722,7 @@
         ].forEach(([cx, cz, botY, topY]) => cornerLine(cx, cz, botY, topY));
 
         // =========================================================================
-        // 5. TIANG & BALOK COR TERAS DEPAN
+        // 5. TIANG & BALOK COR TERAS DEPAN (TEBAL BALOK = KETEBALAN DINDING 15CM / TH)
         // =========================================================================
         [3.0 - hT, 6.125, 9.5 + hT - 0.25].forEach((x, idx) => {
             const pJit = (idx + 1) * 0.0001;
@@ -735,20 +735,22 @@
         });
 
         const TERAS_BEAM_H = 0.22;
-        box(3.0 - hT + 0.0002, H_TERAS - TERAS_BEAM_H, 11.9502, 9.5 + hT - 0.0002, H_TERAS - 0.0002, 12.1998, wallM, 0);
-        box(3.0 - hT - 0.01, H_TERAS - 0.07, 11.94, 9.5 + hT + 0.01, H_TERAS + 0.002, 12.21, plinthM, 0);
+        const TERAS_BEAM_Z1 = 12.2;
+        const TERAS_BEAM_Z0 = TERAS_BEAM_Z1 - TH; // 12.05m (tebal 0.15m = ketebalan dinding)
+        box(3.0 - hT + 0.0002, H_TERAS - TERAS_BEAM_H, TERAS_BEAM_Z0 + 0.0002, 9.5 + hT - 0.0002, H_TERAS - 0.0002, TERAS_BEAM_Z1 - 0.0002, wallM, 0);
+        box(3.0 - hT - 0.01, H_TERAS - 0.07, TERAS_BEAM_Z0 - 0.01, 9.5 + hT + 0.01, H_TERAS + 0.002, TERAS_BEAM_Z1 + 0.01, plinthM, 0);
 
         [
-            [3.0 - hT + 0.25, 6.125],
-            [6.375, 9.5 + hT - 0.25]
+            [3.0 - hT + TH, 6.25 - hT],
+            [6.25 + hT, 9.5 + hT - TH]
         ].forEach(([bx0, bx1]) => {
-            segLine(bx0, H_TERAS, 11.95, bx1, H_TERAS, 11.95);
-            segLine(bx0, H_TERAS, 12.2, bx1, H_TERAS, 12.2);
-            segLine(bx0, H_TERAS - TERAS_BEAM_H, 11.95, bx1, H_TERAS - TERAS_BEAM_H, 11.95);
-            segLine(bx0, H_TERAS - TERAS_BEAM_H, 12.2, bx1, H_TERAS - TERAS_BEAM_H, 12.2);
+            segLine(bx0, H_TERAS, TERAS_BEAM_Z0, bx1, H_TERAS, TERAS_BEAM_Z0);
+            segLine(bx0, H_TERAS, TERAS_BEAM_Z1, bx1, H_TERAS, TERAS_BEAM_Z1);
+            segLine(bx0, H_TERAS - TERAS_BEAM_H, TERAS_BEAM_Z0, bx1, H_TERAS - TERAS_BEAM_H, TERAS_BEAM_Z0);
+            segLine(bx0, H_TERAS - TERAS_BEAM_H, TERAS_BEAM_Z1, bx1, H_TERAS - TERAS_BEAM_H, TERAS_BEAM_Z1);
         });
 
-        function addSlopedTerasBeam(xStart, z0, z1 = 12.2, w = 0.25, h = TERAS_BEAM_H) {
+        function addSlopedTerasBeam(xStart, z0, z1 = 12.2, w = TH, h = TERAS_BEAM_H) {
             const slope = 0.46 / 2.9;
             const yTop0 = H_TERAS + (z1 - z0) * slope;
             const yTop1 = H_TERAS;
@@ -797,8 +799,8 @@
         }
 
         addSlopedTerasBeam(3.0 - hT, 10.2, 12.2);
-        addSlopedTerasBeam(6.125, 10.2, 12.2);
-        addSlopedTerasBeam(9.5 + hT - 0.25, 9.7, 12.2);
+        addSlopedTerasBeam(6.25 - hT, 10.2, 12.2);
+        addSlopedTerasBeam(9.5 + hT - TH, 9.7, 12.2);
 
         // =========================================================================
         // 6. GAWANG PINTU, DAUN PINTU & VENTILASI KAYU ATAS (JARAK 10CM)
