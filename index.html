@@ -270,7 +270,6 @@
         const wallM = new T.MeshLambertMaterial({ color: 0xf5f5f3 });
         const slabM = new T.MeshLambertMaterial({ map: tileTex });
         const slabSideM = new T.MeshLambertMaterial({ color: 0xf5f5f3 }); // Sama persis dengan warna dinding
-        const ceilingM = new T.MeshLambertMaterial({ color: 0xffffff, side: T.DoubleSide });
         const timberMainM = new T.MeshLambertMaterial({ map: woodTex, color: 0xb67b48 }); // Balok kuda-kuda & tiang kayu
         const timberPurlinM = new T.MeshLambertMaterial({ map: woodTex, color: 0x9c6234 }); // Gording, usuk & nok kayu
         const woodEdgeM = new T.LineBasicMaterial({ color: 0x4b2a12 });
@@ -865,7 +864,7 @@
             const halfRoofZ = halfSpan + ov; // 5.50m
             const slope = rh / halfRoofZ; // 1.9 / 5.5
             const yApex = H + rh; // 5.40m
-            const yWallUnder = yApex - halfSpan * slope; // ~3.638m (tinggi dudukan kaki kuda-kuda di atas tembok)
+            const yWallUnder = yApex - halfSpan * slope; // ~3.638m
 
             // Balok tembok / murplat (wall plate) memanjang kiri & kanan (x = 3.0 dan x = 9.5)
             woodBeam([x0, H + 0.04, z0 - hT], [x0, H + 0.04, z1 + hT], 0.12, 0.08, timberMainM);
@@ -873,7 +872,7 @@
 
             // 5 Set Kuda-Kuda Kayu Simetris (posisi X sejajar struktur)
             const trussXs = [3.08, 4.625, 6.25, 7.875, 9.42];
-            const tieY = H + 0.14; // Balok tarik (tie beam) di atas plafon agar terlihat utuh dari bawah saat atap/plafon dimatikan
+            const tieY = H + 0.14;
             const kingBotY = tieY + 0.06;
             const kingTopY = yApex - 0.14;
 
@@ -984,17 +983,10 @@
         })();
 
         // =========================================================================
-        // 8. ATAP GELOMBANG ALA ASBES + NOK BUBUNGAN + PLAFON INTERIOR
+        // 8. ATAP GELOMBANG ALA ASBES + NOK BUBUNGAN (TANPA PLAFON)
         // =========================================================================
         const roofs = new T.Group();
         scene.add(roofs);
-
-        box(0.0, H_LOW - 0.02, 0.0, 3.0, H_LOW, 3.0, ceilingM, 0, roofs);
-        box(3.0, H - 0.02, 0.0, 9.5, H, 3.0, ceilingM, 0, roofs);
-        box(9.5, H_LOW - 0.02, 0.0, 11.0, H_LOW, 3.0, ceilingM, 0, roofs);
-
-        box(3.0, H - 0.02, 3.0, 6.25, H, 10.2, ceilingM, 0, roofs);
-        box(6.25, H - 0.02, 3.0, 9.5, H, 9.7, ceilingM, 0, roofs);
 
         function addAsbesSlope(xMin, xMax, zStart, yStart, zEnd, yEnd, opts = {}) {
             const pitch = opts.pitch || 0.14;
