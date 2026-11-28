@@ -639,7 +639,13 @@
         // =========================================================================
         // 2. DINDING DAPUR, PERKAKAS & KAMAR MANDI
         // =========================================================================
-        const H_WING_FRONT = H_LOW + 1.32 * (3.4 / 3.8) - 0.045; // ~4.036m
+        const WING_SLOPE = 1.32 / 3.8;
+        const COS_WING = 1 / Math.hypot(1, WING_SLOPE);
+        const WING_SHEET_CLEAR = 0.032 / COS_WING;
+        const WING_PURLIN_H = 0.06;
+        const WING_RAFTER_H = 0.08;
+        const WING_RAFTER_DROP = WING_SHEET_CLEAR + (WING_PURLIN_H + WING_RAFTER_H * 0.5) / COS_WING;
+        const H_WING_FRONT = H_LOW + 1.32 - WING_RAFTER_DROP - WING_RAFTER_H / 2;
 
         W(0, 0, 3.0, 0, [], H_LOW, Y_DROP);
         W(0, 0, 0, 3.0, [], H_LOW, Y_DROP);
@@ -654,7 +660,7 @@
         W(9.5, 3.0, 9.74 - hT, 3.0, [], H_WING_FRONT, Y_DROP);
         W(10.66 + hT, 3.0, 11.0, 3.0, [], H_WING_FRONT, Y_DROP);
 
-        W(8.0 + hT, 1.5, 9.5, 1.5, [], H, Y_DROP);
+        W(8.0, 1.5, 9.5, 1.5, [], H, Y_DROP);
         W(9.5, 1.5, 11.0, 1.5, [], H_LOW, Y_DROP);
 
         const BATH_DOOR_Z0 = hT;
@@ -834,7 +840,7 @@
 
             const clearanceWing = 0.045;
             const yBackOffset = 1.32 * (0.4 / 3.8) - clearanceWing;
-            const yFrontOffset = 1.32 * (3.4 / 3.8) - clearanceWing;
+            const yFrontOffset = H_WING_FRONT - H_LOW;
 
             const wShape = new T.Shape();
             wShape.moveTo(0, 0);
@@ -1002,16 +1008,16 @@
             }
 
             // 7.2 Atap Sayap Kiri & Sayap Kanan
-            const wingSlope = 1.32 / 3.8; // ~0.3474
-            const cosWing = 1 / Math.hypot(1, wingSlope);
-            const wingSheetClear = 0.032 / cosWing;
-            const wingPurlinH = 0.06;
+            const wingSlope = WING_SLOPE;
+            const cosWing = COS_WING;
+            const wingSheetClear = WING_SHEET_CLEAR;
+            const wingPurlinH = WING_PURLIN_H;
             const wingPurlinDrop = wingSheetClear + (wingPurlinH * 0.5) / cosWing; // ~0.066m
-            const wingRafterH = 0.08;
-            const wingRafterDrop = wingSheetClear + (wingPurlinH + wingRafterH * 0.5) / cosWing; // ~0.140m
+            const wingRafterH = WING_RAFTER_H;
+            const wingRafterDrop = WING_RAFTER_DROP; // ~0.140m
 
             function buildWingTimber(roofX0, roofX1, plateX0, plateX1, baseH, rafterXs) {
-                woodBeam([plateX0, H_WING_FRONT - 0.045, 3.0], [plateX1, H_WING_FRONT - 0.045, 3.0], 0.10, 0.08, timberMainM);
+                woodBeam([plateX0, H_WING_FRONT + 0.04, 3.0], [plateX1, H_WING_FRONT + 0.04, 3.0], 0.10, 0.08, timberMainM);
                 woodBeam([plateX0, baseH + 0.04, 0.0], [plateX1, baseH + 0.04, 0.0], 0.10, 0.08, timberMainM);
 
                 const yStart = baseH + 1.32 - wingRafterDrop;
