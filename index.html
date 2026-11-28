@@ -240,7 +240,7 @@
         const wallM = new T.MeshLambertMaterial({ color: 0xf5f5f3 });
         const plinthM = new T.MeshLambertMaterial({ color: 0x57534e });
         const slabM = new T.MeshLambertMaterial({ map: tileTex });
-        const slabSideM = new T.MeshLambertMaterial({ color: 0xe3ded6 });
+        const slabSideM = new T.MeshLambertMaterial({ color: 0xf5f5f3 }); // Sama persis dengan warna dinding
         const ceilingM = new T.MeshLambertMaterial({ color: 0xffffff, side: T.DoubleSide });
         const doorM = new T.MeshLambertMaterial({ color: 0x7a441e });
         const frameM = new T.MeshLambertMaterial({ color: 0x5c3012 }); // Kusen kayu pintu, jendela & ventilasi
@@ -503,6 +503,11 @@
         const BATH_JAMB_T = 0.045;
         const BATH_OPEN_SPAN = BATH_DOOR_CLEAR_W + BATH_JAMB_T * 2; // 0.79m
 
+        const RELAX_DOOR_Z0 = 3.0 + hT;
+        const RELAX_DOOR_Z1 = RELAX_DOOR_Z0 + DOOR_OPEN_SPAN;
+        const FRONT_DOOR_X0 = 6.25 + hT;
+        const FRONT_DOOR_X1 = FRONT_DOOR_X0 + DOOR_OPEN_SPAN;
+
         function addDoorFrame(x1, z1, x2, z2, baseY = 0, opts = {}) {
             const hz = Math.abs(z1 - z2) < 1e-6;
             const clearH = opts.clearH || DOOR_CLEAR_H;
@@ -576,11 +581,15 @@
         // =========================================================================
         floorSlab(-hT, -0.35, -hT, 11.0 + hT, Y_DROP, 3.0 + hT);
 
-        // Pelat lantai bangunan utama diperpanjang penuh sampai muka luar dinding (3.0-hT, 10.2+hT, 9.7+hT)
-        // sehingga bagian bawah seluruh kusen pintu terisi lantai keramik penuh
-        floorSlab(3.0 - hT, -0.35, 3.0, 6.25, 0, 10.2 + hT);
-        floorSlab(6.25, -0.35, 3.0, 9.5 + hT, 0, 9.7 + hT);
+        // Pelat lantai utama (mundur 2mm di balik dinding agar tidak Z-fighting dengan dinding)
+        floorSlab(3.0 - hT + 0.002, -0.35, 3.0, 6.25, 0, 10.2 + hT - 0.002);
+        floorSlab(6.25, -0.35, 3.0, 9.5 + hT - 0.002, 0, 9.7 + hT - 0.002);
 
+        // Pelat lantai keramik khusus di bawah bukaan pintu utama & pintu ruang santai (penuh hingga muka luar kusen)
+        floorSlab(FRONT_DOOR_X0, -0.35, 9.7, FRONT_DOOR_X1, 0, 9.7 + hT);
+        floorSlab(3.0 - hT, -0.35, RELAX_DOOR_Z0, 3.0, 0, RELAX_DOOR_Z1);
+
+        // Pelat lantai teras depan
         floorSlab(3.0 - hT, -0.35, 10.2 + hT, 6.25, Y_DROP, 12.2);
         floorSlab(6.25, -0.35, 9.7 + hT, 9.5 + hT, Y_DROP, 12.2);
 
@@ -610,9 +619,6 @@
         // =========================================================================
         // 3. DINDING BANGUNAN UTAMA & JENDELA
         // =========================================================================
-        const RELAX_DOOR_Z0 = 3.0 + hT;
-        const RELAX_DOOR_Z1 = RELAX_DOOR_Z0 + DOOR_OPEN_SPAN;
-
         // Jendela ruang santai: dinding luar samping kiri turun hingga Y_DROP agar menutup sudut teras penuh
         W(3.0, RELAX_DOOR_Z1 + hT, 3.0, 10.2, [[4.95, 5.45, 0.88, 2.08], [5.65, 6.15, 0.88, 2.08]], H, Y_DROP, false, -1);
 
@@ -642,8 +648,6 @@
         W(3.0, 10.2, 6.25, 10.2, [[4.025, 4.525, 0.48, 2.08], [4.725, 5.225, 0.48, 2.08]], H, Y_DROP, false, 1);
 
         // Jendela depan ruang tamu: pintu utama mepet dinding kiri (x = 6.25 + hT = 6.325), dasar dinding turun ke Y_DROP
-        const FRONT_DOOR_X0 = 6.25 + hT;
-        const FRONT_DOOR_X1 = FRONT_DOOR_X0 + DOOR_OPEN_SPAN;
         W(FRONT_DOOR_X1 + hT, 9.7, 9.5, 9.7, [[7.735, 8.235, 0.48, 2.08], [8.435, 8.935, 0.48, 2.08]], H, Y_DROP, false, 1);
 
         // =========================================================================
