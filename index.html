@@ -641,18 +641,21 @@
         // =========================================================================
         // 2. DINDING DAPUR, PERKAKAS & KAMAR MANDI
         // =========================================================================
+        // Tinggi sisi depan atap sayap (z = 3.0) menanjak hingga H_WING_FRONT agar menutup celah di bawah atap sayap
+        const H_WING_FRONT = H_LOW + 1.32 * (3.4 / 3.8) - 0.045; // ~4.036m
+
         W(0, 0, 3.0, 0, [], H_LOW, Y_DROP);
         W(0, 0, 0, 3.0, [], H_LOW, Y_DROP);
-        W(0, 3.0, 1.84 - hT, 3.0, [], H_LOW, Y_DROP);
-        W(2.76 + hT, 3.0, 3.0, 3.0, [], H_LOW, Y_DROP);
+        W(0, 3.0, 1.84 - hT, 3.0, [], H_WING_FRONT, Y_DROP);
+        W(2.76 + hT, 3.0, 3.0, 3.0, [], H_WING_FRONT, Y_DROP);
 
         W(3.0, 0, 9.5, 0, [], H, Y_DROP);
         W(3.0, 3.0, 9.5, 3.0, [], H, Y_DROP);
 
         W(9.5, 0, 11.0, 0, [], H_LOW, Y_DROP);
         W(11.0, 0, 11.0, 3.0, [], H_LOW, Y_DROP);
-        W(9.5, 3.0, 9.74 - hT, 3.0, [], H_LOW, Y_DROP);
-        W(10.66 + hT, 3.0, 11.0, 3.0, [], H_LOW, Y_DROP);
+        W(9.5, 3.0, 9.74 - hT, 3.0, [], H_WING_FRONT, Y_DROP);
+        W(10.66 + hT, 3.0, 11.0, 3.0, [], H_WING_FRONT, Y_DROP);
 
         W(8.0 + hT, 1.5, 9.5, 1.5, [], H, Y_DROP);
         W(9.5, 1.5, 11.0, 1.5, [], H_LOW, Y_DROP);
@@ -691,10 +694,10 @@
         const DOOR_VENT_Y1 = DOOR_VENT_Y0 + VENT_H;
 
         W(1.84 + hT, 3.0, 2.76 - hT, 3.0, [], Y_DROP + DOOR_VENT_Y0, Y_DROP + DOOR_TOP_Y0, true);
-        W(1.84 + hT, 3.0, 2.76 - hT, 3.0, [], H_LOW, Y_DROP + DOOR_VENT_Y1, true);
+        W(1.84 + hT, 3.0, 2.76 - hT, 3.0, [], H_WING_FRONT, Y_DROP + DOOR_VENT_Y1, true);
 
         W(9.74 + hT, 3.0, 10.66 - hT, 3.0, [], Y_DROP + DOOR_VENT_Y0, Y_DROP + DOOR_TOP_Y0, true);
-        W(9.74 + hT, 3.0, 10.66 - hT, 3.0, [], H_LOW, Y_DROP + DOOR_VENT_Y1, true);
+        W(9.74 + hT, 3.0, 10.66 - hT, 3.0, [], H_WING_FRONT, Y_DROP + DOOR_VENT_Y1, true);
 
         W(8.0, BATH_DOOR_Z0 + hT, 8.0, BATH_DOOR_Z1 - hT, [], H, Y_DROP + BATH_DOOR_CLEAR_H + BATH_JAMB_T, true);
 
@@ -717,14 +720,14 @@
         ].forEach(b => W(b[0], b[1], b[2], b[3], [], H, 3.15, true));
 
         [
-            [0 + hT, 0 + hT, Y_DROP, H_LOW], [0 + hT, 3.0 - hT, Y_DROP, H_LOW],
-            [8.0 - hT, 0 + hT, Y_DROP, H], [11.0 - hT, 3.0 - hT, Y_DROP, H_LOW], [11.0 - hT, 1.5 + hT, Y_DROP, H_LOW],
+            [0 + hT, 0 + hT, Y_DROP, H_LOW], [0 + hT, 3.0 - hT, Y_DROP, H_WING_FRONT],
+            [8.0 - hT, 0 + hT, Y_DROP, H], [11.0 - hT, 3.0 - hT, Y_DROP, H_WING_FRONT], [11.0 - hT, 1.5 + hT, Y_DROP, H_LOW],
             [8.0 + hT, 0 + hT, Y_DROP, H], [11.0 - hT, 0 + hT, Y_DROP, H_LOW], [8.0 + hT, 1.5 - hT, Y_DROP, H], [11.0 - hT, 1.5 - hT, Y_DROP, H_LOW],
             [3.0 + hT, 3.0 + hT, 0, H], [6.25 - hT, 3.0 + hT, 0, H], [3.0 + hT, 7.2 - hT, 0, H], [6.25 - hT, 7.2 - hT, 0, H],
             [6.25 + hT, 3.0 + hT, 0, H], [9.5 - hT, 3.0 + hT, 0, H], [6.25 + hT, 6.0 - hT, 0, H], [9.5 - hT, 6.0 - hT, 0, H],
             [3.0 + hT, 7.2 + hT, 0, H], [6.25 - hT, 7.2 + hT, 0, H], [3.0 + hT, 10.2 - hT, 0, H], [6.25 - hT, 10.2 - hT, 0, H],
             [6.25 + hT, 6.0 + hT, 0, H], [9.5 - hT, 6.0 + hT, 0, H], [6.25 + hT, 9.7 - hT, 0, H], [9.5 - hT, 9.7 - hT, 0, H],
-            [-hT, -hT, Y_DROP, H_LOW], [-hT, 3.0 + hT, Y_DROP, H_LOW], [11.0 + hT, -hT, Y_DROP, H_LOW], [11.0 + hT, 3.0 + hT, Y_DROP, H_LOW],
+            [-hT, -hT, Y_DROP, H_LOW], [-hT, 3.0 + hT, Y_DROP, H_WING_FRONT], [11.0 + hT, -hT, Y_DROP, H_LOW], [11.0 + hT, 3.0 + hT, Y_DROP, H_WING_FRONT],
             [3.0 - hT, 10.2 + hT, Y_DROP, H], [6.25 + hT, 10.2 + hT, Y_DROP, H], [6.25 + hT, 9.7 + hT, Y_DROP, H], [9.5 + hT, 9.7 + hT, Y_DROP, H]
         ].forEach(([cx, cz, botY, topY]) => cornerLine(cx, cz, botY, topY));
 
@@ -834,7 +837,7 @@
             });
 
             // 2. Dinding Gewel Miring Sayap Kiri & Kanan hanya di sisi luar (x = 0.0 dan x = 11.0)
-            // Sisi pertemuan x = 3.0 dan x = 9.5 menyatu langsung dengan dinding tinggi bangunan utama (H = 3.5m)
+            // dan pengisi celah segitiga pertemuan di x = 3.0 & x = 9.5 (di atas H = 3.5m hingga atap sayap)
             const clearanceWing = 0.045;
             const yBackOffset = 1.32 * (0.4 / 3.8) - clearanceWing;
             const yFrontOffset = 1.32 * (3.4 / 3.8) - clearanceWing;
@@ -864,6 +867,33 @@
                     segLine(xEdge, H_LOW, 0, xEdge, yB, 0);
                     segLine(xEdge, H_LOW, 3.0, xEdge, yF, 3.0);
                     segLine(xEdge, yB, 0, xEdge, yF, 3.0);
+                });
+            });
+
+            // Penutup celah segitiga di atas dinding utama (H = 3.5m s.d. H_WING_FRONT) pada pertemuan sayap x = 3.0 dan x = 9.5
+            const wingSlope = 1.32 / 3.8;
+            const zMeet = 3.4 - (H - H_LOW + clearanceWing) / wingSlope; // ~1.54m
+            const topFillerShape = new T.Shape();
+            topFillerShape.moveTo(-zMeet, 0);
+            topFillerShape.lineTo(-3.0, 0);
+            topFillerShape.lineTo(-3.0, H_WING_FRONT - H);
+            topFillerShape.closePath();
+
+            const topFillerGeo = new T.ExtrudeGeometry(topFillerShape, {
+                depth: TH - 0.0004,
+                bevelEnabled: false
+            });
+
+            [3.0, 9.5].forEach(wx => {
+                const fMesh = new T.Mesh(topFillerGeo, wallM);
+                fMesh.rotation.y = Math.PI / 2;
+                fMesh.position.set(wx - hT + 0.0002, H - 0.001, 0);
+                scene.add(fMesh);
+
+                const xL = wx - hT, xR = wx + hT;
+                [xL, xR].forEach(xEdge => {
+                    segLine(xEdge, H, zMeet, xEdge, H_WING_FRONT, 3.0);
+                    segLine(xEdge, H, 3.0, xEdge, H_WING_FRONT, 3.0);
                 });
             });
         })();
@@ -977,11 +1007,10 @@
                 woodBeam([x0 - ov, py, zMid + dzOff], [x1 + ov, py, zMid + dzOff], 0.06, 0.08, timberPurlinM);
             }
 
-            // 7.2 Rangka Kayu Atap Sayap Kiri & Sayap Kanan (berhenti tepat di muka dinding utama x = 3.0-hT dan x = 9.5+hT)
+            // 7.2 Rangka Kayu Atap Sayap Kiri & Sayap Kanan (tertutup dinding depan H_WING_FRONT)
             function buildWingTimber(roofX0, roofX1, plateX0, plateX1, baseH, rafterXs) {
-                // Balok tembok / murplat (wall plate) di atas dinding depan (z = 3.0) & belakang (z = 0.0)
-                // berhenti di muka luar dinding utama sehingga tidak muncul kayu di luar tembok utama
-                woodBeam([plateX0, baseH + 0.04, 3.0], [plateX1, baseH + 0.04, 3.0], 0.10, 0.08, timberMainM);
+                // Balok tembok / murplat (wall plate) di atas dinding belakang (z = 0.0) & di balik dinding depan (z = 3.0)
+                woodBeam([plateX0, H_WING_FRONT - 0.04, 3.0], [plateX1, H_WING_FRONT - 0.04, 3.0], 0.10, 0.08, timberMainM);
                 woodBeam([plateX0, baseH + 0.04, 0.0], [plateX1, baseH + 0.04, 0.0], 0.10, 0.08, timberMainM);
 
                 // Usuk / kasau miring simetris di dalam ruangan sayap
