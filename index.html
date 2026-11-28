@@ -243,6 +243,7 @@
         const slabSideM = new T.MeshLambertMaterial({ color: 0xb8b2a8 });
         const ceilingM = new T.MeshLambertMaterial({ color: 0xffffff, side: T.DoubleSide });
         const doorM = new T.MeshLambertMaterial({ color: 0x7a441e });
+        const frameM = new T.MeshLambertMaterial({ color: 0x5c3012 }); // Material kayu gawang pintu
         const winM = new T.MeshLambertMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.72 });
         const edgeM = new T.LineBasicMaterial({ color: 0x22262a });
         const cornerM = new T.LineBasicMaterial({ color: 0x9c9890 });
@@ -345,14 +346,58 @@
             B(p, a1, y0, h, wallM);
         }
 
+        // =========================================================================
+        // FUNGSI GAWANG PINTU KAYU + DAUN PINTU
+        // Kriteria gambar:
+        // - Ketebalan gawang (depth dinding) = 15cm (TH = 0.15m)
+        // - Lebar bersih pintu = 80cm (0.80m)
+        // - Tinggi bersih pintu = 2m (2.00m dari permukaan lantai baseY)
+        // - Profil kayu gawang = 6cm (0.06m)
+        // =========================================================================
+        const DOOR_CLEAR_W = 0.80; // 80cm
+        const DOOR_CLEAR_H = 2.00; // 2m
+        const JAMB_T = 0.06;       // tebal batang kayu kusen 6cm (total bukaan kasar = 0.92m, tinggi kasar = 2.06m)
+
+        function addDoorFrame(x1, z1, x2, z2, baseY = 0) {
+            const hz = Math.abs(z1 - z2) < 1e-6;
+            const yTopClear = baseY + DOOR_CLEAR_H;
+            const yTopOuter = yTopClear + JAMB_T;
+            const dHalf = hT + 0.0015; // ketebalan gawang 15cm (sedikit menonjol 1.5mm agar garis rapi)
+
+            if (hz) {
+                const a0 = Math.min(x1, x2);
+                const a1 = Math.max(x1, x2);
+                const c = z1;
+                // Tiang kusen kiri & kanan
+                box(a0, baseY, c - dHalf, a0 + JAMB_T, yTopClear, c + dHalf, frameM, 1);
+                box(a1 - JAMB_T, baseY, c - dHalf, a1, yTopClear, c + dHalf, frameM, 1);
+                // Ambang atas gawang (menutup penuh dari ujung kiri ke ujung kanan)
+                box(a0, yTopClear, c - dHalf, a1, yTopOuter, c + dHalf, frameM, 1);
+            } else {
+                const a0 = Math.min(z1, z2);
+                const a1 = Math.max(z1, z2);
+                const c = x1;
+                // Tiang kusen kiri & kanan
+                box(c - dHalf, baseY, a0, c + dHalf, yTopClear, a0 + JAMB_T, frameM, 1);
+                box(c - dHalf, baseY, a1 - JAMB_T, c + dHalf, yTopClear, a1, frameM, 1);
+                // Ambang atas gawang
+                box(c - dHalf, yTopClear, a0, c + dHalf, yTopOuter, a1, frameM, 1);
+            }
+        }
+
         function D(hx, hz, w, deg, baseY = 0) {
             const rad = deg * Math.PI / 180;
             const dx = Math.cos(rad) * w, dz = Math.sin(rad) * w;
-            const doorH = 2.05 - baseY;
-            const m = new T.Mesh(new T.BoxGeometry(w, doorH, 0.05), doorM);
+            const doorH = DOOR_CLEAR_H;
+            const m = new T.Mesh(new T.BoxGeometry(w, doorH, 0.045), doorM);
             m.position.set(hx + dx / 2, baseY + doorH / 2, hz + dz / 2);
             m.rotation.y = -rad;
             scene.add(m);
+
+            const edge = new T.LineSegments(new T.EdgesGeometry(m.geometry), edgeM);
+            edge.position.copy(m.position);
+            edge.rotation.copy(m.rotation);
+            scene.add(edge);
         }
 
         // =========================================================================
@@ -372,56 +417,67 @@
 
         // =========================================================================
         // 2. DINDING DAPUR, PERKAKAS & KAMAR MANDI
+        // (Bukaan pintu disesuaikan lebar bersih 80cm + gawang kayu 6cm = 92cm)
         // =========================================================================
         W(0, 0, 3.0, 0, [], H_LOW, Y_DROP);
         W(0, 0, 0, 3.0, [], H_LOW, Y_DROP);
-        W(0, 3.0, 1.85, 3.0, [], H_LOW, Y_DROP);
-        W(2.75, 3.0, 3.0, 3.0, [], H_LOW, Y_DROP);
+        // Bukaan pintu dapur kiri: x = 1.84 .. 2.76 (bersih 1.90 .. 2.70 = 80cm)
+        W(0, 3.0, 1.84, 3.0, [], H_LOW, Y_DROP);
+        W(2.76, 3.0, 3.0, 3.0, [], H_LOW, Y_DROP);
 
         W(3.0, 0, 9.5, 0, [], H, Y_DROP);
         W(3.0, 3.0, 9.5, 3.0, [], H, Y_DROP);
 
         W(9.5, 0, 11.0, 0, [], H_LOW, Y_DROP);
         W(11.0, 0, 11.0, 3.0, [], H_LOW, Y_DROP);
-        W(9.5, 3.0, 9.75, 3.0, [], H_LOW, Y_DROP);
-        W(10.65, 3.0, 11.0, 3.0, [], H_LOW, Y_DROP);
+        // Bukaan pintu area belakang kanan: x = 9.74 .. 10.66 (bersih 9.80 .. 10.60 = 80cm)
+        W(9.5, 3.0, 9.74, 3.0, [], H_LOW, Y_DROP);
+        W(10.66, 3.0, 11.0, 3.0, [], H_LOW, Y_DROP);
 
         W(8.0, 1.5, 9.5, 1.5, [], H, Y_DROP);
         W(9.5, 1.5, 11.0, 1.5, [], H_LOW, Y_DROP);
-        W(8.0, 0.85, 8.0, 1.5, [], H, Y_DROP);
+        // Bukaan pintu kamar mandi: z = 0.0 .. 0.92 (bersih 0.06 .. 0.86 = 80cm)
+        W(8.0, 0.92, 8.0, 1.5, [], H, Y_DROP);
 
         // =========================================================================
         // 3. DINDING BANGUNAN UTAMA
         // =========================================================================
-        W(3.0, 3.9, 3.0, 10.2, [[4.7, 5.25], [5.65, 6.2]], H, 0);
+        // Bukaan pintu penghubung ruang santai: z = 3.0 .. 3.92 (bersih 3.06 .. 3.86 = 80cm)
+        W(3.0, 3.92, 3.0, 10.2, [[4.7, 5.25], [5.65, 6.2]], H, 0);
         W(9.5, 3.0, 9.5, 9.7, [[4.85, 5.45]], H, 0);
 
-        W(6.25, 3.0, 6.25, 4.9, [], H, 0);
-        W(6.25, 5.8, 6.25, 6.0, [], H, 0);
+        // Sekat Tengah Vertikal (x = 6.25) - Bukaan pintu kamar tidur utama: z = 4.98 .. 5.90 (bersih 80cm)
+        W(6.25, 3.0, 6.25, 4.98, [], H, 0);
+        W(6.25, 5.90, 6.25, 6.0, [], H, 0);
         W(6.25, 7.2, 6.25, 10.2, [], H, 0);
 
+        // Sekat Horizontal Tengah - Bukaan pintu kamar tidur tamu: x = 5.08 .. 6.00 (bersih 80cm)
         W(6.25, 6.0, 9.5, 6.0, [], H, 0);
-        W(3.0, 7.2, 5.05, 7.2, [], H, 0);
-        W(5.95, 7.2, 6.25, 7.2, [], H, 0);
+        W(3.0, 7.2, 5.08, 7.2, [], H, 0);
+        W(6.00, 7.2, 6.25, 7.2, [], H, 0);
 
+        // Dinding Depan Kamar Tidur Tamu (z = 10.2)
         W(3.0, 10.2, 6.25, 10.2, [[3.75, 4.35], [4.95, 5.55]], H, 0);
 
+        // Dinding Depan Ruang Tamu (z = 9.7) - Bukaan pintu utama: x = 6.45 .. 7.37 (bersih 6.51 .. 7.31 = 80cm)
         W(6.25, 9.7, 6.45, 9.7, [], H, 0);
-        W(7.35, 9.7, 9.5, 9.7, [[7.8, 8.4], [8.65, 9.25]], H, 0);
+        W(7.37, 9.7, 9.5, 9.7, [[7.8, 8.4], [8.65, 9.25]], H, 0);
 
         // =========================================================================
-        // 4. BALOK GAWANG, RING BALK & GARIS SIKU
+        // 4. BALOK DINDING DI ATAS GAWANG PINTU, RING BALK & GARIS SIKU
+        // (Dinding atas mulai dari puncak luar kusen = baseY + 2.00 + 0.06)
         // =========================================================================
-        W(1.85, 3.0, 2.75, 3.0, [], H_LOW, 2.1, true);
-        W(9.75, 3.0, 10.65, 3.0, [], H_LOW, 2.1, true);
+        W(1.84, 3.0, 2.76, 3.0, [], H_LOW, Y_DROP + DOOR_CLEAR_H + JAMB_T, true);
+        W(9.74, 3.0, 10.66, 3.0, [], H_LOW, Y_DROP + DOOR_CLEAR_H + JAMB_T, true);
+        W(8.0, 0.0, 8.0, 0.92, [], H, Y_DROP + DOOR_CLEAR_H + JAMB_T, true);
+
         [
-            [8.0, 0.0, 8.0, 0.85],
-            [3.0, 3.0, 3.0, 3.9],
-            [6.25, 4.9, 6.25, 5.8],
+            [3.0, 3.0, 3.0, 3.92],
+            [6.25, 4.98, 6.25, 5.90],
             [6.25, 6.0, 6.25, 7.2],
-            [5.05, 7.2, 5.95, 7.2],
-            [6.45, 9.7, 7.35, 9.7]
-        ].forEach(a => W(a[0], a[1], a[2], a[3], [], H, 2.1, true));
+            [5.08, 7.2, 6.00, 7.2],
+            [6.45, 9.7, 7.37, 9.7]
+        ].forEach(a => W(a[0], a[1], a[2], a[3], [], H, DOOR_CLEAR_H + JAMB_T, true));
 
         [
             [3.0, 0.0, 3.0, 3.0],
@@ -442,7 +498,7 @@
         ].forEach(([cx, cz, botY, topY]) => cornerLine(cx, cz, botY, topY));
 
         // =========================================================================
-        // 5. TIANG & BALOK COR TERAS DEPAN (DENGAN LIS ABU-ABU ATAS SEPERTI DINDING)
+        // 5. TIANG & BALOK COR TERAS DEPAN
         // =========================================================================
         [3.0 - hT, 6.125, 9.5 + hT - 0.25].forEach((x, idx) => {
             const pJit = (idx + 1) * 0.0001;
@@ -521,15 +577,35 @@
         addSlopedTerasBeam(9.5 + hT - 0.25, 9.7, 12.2);
 
         // =========================================================================
-        // 6. DAUN PINTU
+        // 6. GAWANG PINTU KAYU (15cm x 80cm x 2m) & DAUN PINTU
         // =========================================================================
-        D(2.75, 3.0, 0.9, -150, Y_DROP);
-        D(10.65, 3.0, 0.9, -150, Y_DROP);
-        D(8.0, 0.0, 0.85, 32, Y_DROP);
-        D(3.0, 3.0, 0.9, 25, 0);
-        D(6.25, 5.8, 0.9, -25, 0);
-        D(5.95, 7.2, 0.9, 125, 0);
-        D(6.45, 9.7, 0.9, -32, 0);
+        // 1. Pintu dapur kiri
+        addDoorFrame(1.84, 3.0, 2.76, 3.0, Y_DROP);
+        D(2.70, 3.0, DOOR_CLEAR_W, -150, Y_DROP);
+
+        // 2. Pintu area belakang kanan
+        addDoorFrame(9.74, 3.0, 10.66, 3.0, Y_DROP);
+        D(10.60, 3.0, DOOR_CLEAR_W, -150, Y_DROP);
+
+        // 3. Pintu kamar mandi
+        addDoorFrame(8.0, 0.0, 8.0, 0.92, Y_DROP);
+        D(8.0, 0.06, DOOR_CLEAR_W, 32, Y_DROP);
+
+        // 4. Pintu penghubung dapur ke ruang santai
+        addDoorFrame(3.0, 3.0, 3.0, 3.92, 0);
+        D(3.0, 3.06, DOOR_CLEAR_W, 25, 0);
+
+        // 5. Pintu kamar tidur utama (engsel di kiri, membuka ke dalam kamar)
+        addDoorFrame(6.25, 4.98, 6.25, 5.90, 0);
+        D(6.25, 5.84, DOOR_CLEAR_W, -25, 0);
+
+        // 6. Pintu kamar tidur tamu (engsel di kanan, membuka ke dalam kamar)
+        addDoorFrame(5.08, 7.2, 6.00, 7.2, 0);
+        D(5.94, 7.2, DOOR_CLEAR_W, 125, 0);
+
+        // 7. Pintu utama ruang tamu dari teras (engsel di kiri, membuka ke dalam ruang tamu)
+        addDoorFrame(6.45, 9.7, 7.37, 9.7, 0);
+        D(6.51, 9.7, DOOR_CLEAR_W, -32, 0);
 
         // =========================================================================
         // 7. ATAP GELOMBANG ALA ASBES + NOK BUBUNGAN + PLAFON INTERIOR
@@ -739,7 +815,7 @@
             addAsbesRidge(x0 - o - 0.015, x1 + o + 0.015, zMid, yPeak, slopeRatio);
         })(3.0, 0, 9.5, 10.2, 1.9, 0.4);
 
-        // 7b. Atap Sayap Kiri & Sayap Kanan (Mengikuti tinggi dinding 3m / H_LOW = 2.9)
+        // 7b. Atap Sayap Kiri & Sayap Kanan
         function wingAsbes(roofX0, roofX1, wallX0, wallX1, baseH) {
             addAsbesSlope(roofX0, roofX1, 3.4, baseH + 1.32, -0.4, baseH);
 
@@ -765,7 +841,7 @@
         wingAsbes(-0.4, 3.0, -hT, 3.0, H_LOW);
         wingAsbes(9.5, 11.4, 9.5, 11.0 + hT, H_LOW);
 
-        // 7c. Kanopi Teras Depan (Lebar 2.6 s/d 9.9 sama dengan atap rumah utama)
+        // 7c. Kanopi Teras Depan
         addAsbesSlope(3.0 - 0.4, 9.5 + 0.4, 9.7, 3.44, 12.6, 2.98);
 
         // =========================================================================
@@ -903,7 +979,6 @@
             { name: 'Kamar tidur tamu', x: 4.625, z: 8.70, yaw: 0, floorY: 0 },
             { name: 'Kamar tidur utama', x: 7.875, z: 4.50, yaw: -Math.PI / 2, floorY: 0 },
             { name: 'Ruang santai', x: 4.625, z: 5.10, yaw: Math.PI / 2, floorY: 0 },
-            { name: 'Ruang perkakas', x: 1.50, z: 1.50, yaw: 0, floorY: Y_DROP },
             { name: 'Dapur & Perkakas', x: 4.00, z: 1.50, yaw: 0, floorY: Y_DROP },
             { name: 'Area belakang', x: 7.125, z: 1.75, yaw: -Math.PI / 2, floorY: Y_DROP },
             { name: 'Kamar mandi', x: 9.50, z: 0.75, yaw: -Math.PI / 2, floorY: Y_DROP }
