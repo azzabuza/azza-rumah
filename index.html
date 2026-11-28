@@ -240,7 +240,7 @@
         const wallM = new T.MeshLambertMaterial({ color: 0xf5f5f3 });
         const plinthM = new T.MeshLambertMaterial({ color: 0x57534e });
         const slabM = new T.MeshLambertMaterial({ map: tileTex });
-        const slabSideM = new T.MeshLambertMaterial({ color: 0xb8b2a8 });
+        const slabSideM = new T.MeshLambertMaterial({ color: 0xe3ded6 });
         const ceilingM = new T.MeshLambertMaterial({ color: 0xffffff, side: T.DoubleSide });
         const doorM = new T.MeshLambertMaterial({ color: 0x7a441e });
         const frameM = new T.MeshLambertMaterial({ color: 0x5c3012 }); // Kusen kayu pintu, jendela & ventilasi
@@ -576,11 +576,13 @@
         // =========================================================================
         floorSlab(-hT, -0.35, -hT, 11.0 + hT, Y_DROP, 3.0 + hT);
 
-        floorSlab(3.0 - hT, -0.35, 3.0, 6.25, 0, 10.2);
-        floorSlab(6.25, -0.35, 3.0, 9.5 + hT, 0, 9.7);
+        // Pelat lantai bangunan utama diperpanjang penuh sampai muka luar dinding (3.0-hT, 10.2+hT, 9.7+hT)
+        // sehingga bagian bawah seluruh kusen pintu terisi lantai keramik penuh
+        floorSlab(3.0 - hT, -0.35, 3.0, 6.25, 0, 10.2 + hT);
+        floorSlab(6.25, -0.35, 3.0, 9.5 + hT, 0, 9.7 + hT);
 
-        floorSlab(3.0 - hT, -0.35, 10.2, 6.25, Y_DROP, 12.2);
-        floorSlab(6.25, -0.35, 9.7, 9.5 + hT, Y_DROP, 12.2);
+        floorSlab(3.0 - hT, -0.35, 10.2 + hT, 6.25, Y_DROP, 12.2);
+        floorSlab(6.25, -0.35, 9.7 + hT, 9.5 + hT, Y_DROP, 12.2);
 
         // =========================================================================
         // 2. DINDING DAPUR, PERKAKAS & KAMAR MANDI
